@@ -1,5 +1,9 @@
+mod pages;
+
 use eframe::egui;
 use std::sync::Arc;
+
+use pages::setting_page::page as setting_page;
 
 fn main() -> Result<(), eframe::Error> {
     let eframe_options = eframe::NativeOptions {
@@ -90,23 +94,7 @@ impl MyApp {
     fn show_page(&mut self, ui: &mut egui::Ui) {
         match self.page {
             Pages::Setting => {
-                ui.horizontal(|ui| {
-                    ui.add(
-                        egui::Image::new(egui::include_image!("assets/images/Grass_Block_JE7_BE6.png"))
-                        .fit_to_exact_size(egui::vec2(96.0, 96.0))
-                    );
-                    
-                    ui.add(
-                        egui::Image::new(egui::include_image!("assets/images/Grass_Block_JE7_BE6.png"))
-                        .fit_to_exact_size(egui::vec2(96.0, 96.0))
-                    );
-
-                    ui.add(
-                        egui::Image::new(egui::include_image!("assets/images/Grass_Block_JE7_BE6.png"))
-                        .fit_to_exact_size(egui::vec2(96.0, 96.0))
-                    );
-                    
-                });
+                setting_page(ui);
                 self.title = "设置".to_string();
             },
             Pages::Test => {
@@ -138,9 +126,9 @@ impl MyApp {
         });
 
         egui::SidePanel::left("side_bar")
-        .resizable(true)
+        .resizable(false)
         .default_width(150.0)
-        .width_range(80.0..=200.0)
+        // .width_range(80.0..=200.0)
         .show_inside(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.heading("左导航栏");
