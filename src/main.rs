@@ -1,9 +1,6 @@
-mod pages;
-
 use eframe::egui;
 use std::sync::Arc;
-
-use pages::setting_page::page as setting_page;
+use std::process::Command;
 
 fn main() -> Result<(), eframe::Error> {
     let eframe_options = eframe::NativeOptions {
@@ -37,7 +34,7 @@ fn setup_custom_fonts(ctx: &egui::Context) {
     fonts.font_data.insert(
         "my_font".to_owned(),
         Arc::new(egui::FontData::from_static(include_bytes!(
-            "assets/fonts/msyh.ttc"  
+            "assets/fonts/msyh.ttc"
         ))),
     );
 
@@ -60,47 +57,133 @@ fn setup_custom_fonts(ctx: &egui::Context) {
 }
 
 
-enum Pages {
-    Setting,
-    Test,
+struct ProgramLink {
+    name: String,
+    icon_path: String,
+    run_command: String,
+}
+
+impl ProgramLink {
+    fn new(name: String, icon_path: String, run_command: String) -> Self {
+        Self {
+            name: name,
+            icon_path: icon_path,
+            run_command: run_command,
+        }
+    }
+}
+
+
+struct Page {
+    programms: Vec<ProgramLink>,
+    title: String,
+}
+
+impl Page {
+    fn new(title: String, programms: Vec<ProgramLink>) -> Self {
+
+        Self {
+            programms: programms,
+            title: title,
+        }
+    }
 }
 
 struct MyApp {
-    page: Pages,
+    pages: Vec<Page>,
+    current_page_index: usize,
     title: String,
     search_text: String,
 }
 
 impl MyApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let program1 = ProgramLink::new(
+            "SpaceSniffer".to_string(),
+            "../assets/images/Crafting_Table_JE4_BE3.png".to_string(),
+            r"D:\Softwares\SpaceSniffer.exe".to_string(),
+        );
+        let program2 = ProgramLink::new(
+            "MAA".to_string(),
+            "../assets/images/Crafting_Table_JE7_BE3.png".to_string(),
+            r"D:\Softwares\MAA\MAA.exe".to_string(),
+        );
+        let program3 = ProgramLink::new(
+            "Plain Craft Launcher 2".to_string(),
+            "../assets/images/Lit_Furnace_JE7_BE2.png".to_string(),
+            r"D:\Softwares\1.21\Plain Craft Launcher 2.exe".to_string(),
+        );
+
+        let pages = vec![
+            Page::new(
+                "默认页面".to_string(),
+                vec![program1, program2]
+            ),
+            Page::new(
+                "设置页面".to_string(),
+                vec![program3]
+            )
+        ];
+
         Self {
-            page: Pages::Setting,
-            title: "设置".to_string(),
+            pages,
+            current_page_index: 0,
+            title: "默认页面".to_string(),
             search_text: "".to_string(),
         }
     }
 
     fn side_bar(&mut self, ui: &mut egui::Ui) {
         ui.vertical_centered_justified(|ui| {
-            if ui.button("设置").clicked() {
-                self.page = Pages::Setting;
-            }
-            if ui.button("测试").clicked() {
-                self.page = Pages::Test;
+            for (i, _page) in self.pages.iter().enumerate() {
+                if ui.button( &_page.title).clicked() {
+                    self.current_page_index = i;
+                    println!("现在是第 {} 页", i);
+                }
             }
         });
     }
 
     fn show_page(&mut self, ui: &mut egui::Ui) {
-        match self.page {
-            Pages::Setting => {
-                setting_page(ui);
-                self.title = "设置".to_string();
-            },
-            Pages::Test => {
-                ui.label("测试页面");
-                self.title = "测试".to_string();
-            },
+        if let Some(page) = self.pages.get(self.current_page_index) {
+            ui.horizontal(|ui| {
+                for program in &page.programms {
+                    let response = ui.add_sized(
+                        egui::vec2(96.0, 96.0),
+                        egui::ImageButton::new(egui::include_image!("assets/images/Grass_Block_JE7_BE6.png"))
+                    ).on_hover_ui_at_pointer(|ui| {
+                        ui.label(&program.name);
+                    });
+                    
+                    if response.clicked() {
+                        match Command::new(&program.run_command).spawn() {
+                            Ok(_) => println!("运行成功"),
+                            Err(e) => {
+                                println!("运行失败: {}", e);
+                                
+                            },
+                        }
+                    }
+            
+                    response.context_menu(|ui| {
+                        ui.label(&program.name);
+        
+                        if ui.button("运行")
+                        .clicked() {
+                            println!("运行");
+                        }
+                        if ui.button("修改")
+                        .clicked() {
+                            println!("修改");
+                        }
+        
+                        if ui.button("删除")
+                        .clicked() {
+                            println!("删除");
+                        }
+                    });
+                }
+            });
         }
     }
 
@@ -179,8 +262,6 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             // ui.heading("注册页面");
-
-            // ui.label("1. 个人信息");
             self.main_ui(ui);
         });
     }
