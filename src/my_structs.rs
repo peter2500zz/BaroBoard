@@ -1,6 +1,8 @@
 use eframe::egui;
+use serde::{Serialize, Deserialize};
 
 
+#[derive(Serialize, Deserialize)]
 pub struct ProgramLink {
     pub name: String,
     pub icon_path: String,
@@ -17,8 +19,9 @@ impl ProgramLink {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Page {
-    pub programms: Vec<ProgramLink>,
+    pub program_links: Vec<ProgramLink>,
     pub title: String,
 }
 
@@ -27,7 +30,7 @@ impl Page {
     pub fn new(title: String, programms: Vec<ProgramLink>) -> Self {
 
         Self {
-            programms: programms,
+            program_links: programms,
             title: title,
         }
     }
@@ -45,34 +48,19 @@ pub struct MyApp {
 }
 
 impl MyApp {
-    pub 
-    fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let program1 = ProgramLink::new(
-            "SpaceSniffer".to_string(),
-            "../assets/images/Crafting_Table_JE4_BE3.png".to_string(),
-            r"D:\Softwares\SpaceSniffer.exe".to_string(),
-        );
-        let program2 = ProgramLink::new(
-            "MAA".to_string(),
-            "../assets/images/Crafting_Table_JE7_BE3.png".to_string(),
-            r"D:\Softwares\MAA\MAA.exe".to_string(),
-        );
-        let program3 = ProgramLink::new(
-            "Plain Craft Launcher 2".to_string(),
-            "../assets/images/Lit_Furnace_JE7_BE2.png".to_string(),
-            r"D:\Softwares\1.21\Plain Craft Launcher 2.exe".to_string(),
-        );
-
-        let pages = vec![
-            Page::new(
-                "默认页面".to_string(),
-                vec![program1, program2]
-            ),
-            Page::new(
-                "设置页面".to_string(),
-                vec![program3]
-            )
-        ];
+    pub fn new() -> Self {
+        let pages = match Self::load_conf("src/.links.json") {
+            Ok(links_config) => {
+                links_config.pages
+            },
+            Err(e) => {
+                println!("{}", e);
+                vec![Page::new(
+                    "示例页面".to_string(), 
+                    Vec::new()
+                )]
+            },
+        };
 
         Self {
             pages,

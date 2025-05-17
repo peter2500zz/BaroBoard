@@ -23,11 +23,11 @@ impl MyApp {
                             );
                         }
                         if ui.button("在当前页面添加一个程序").clicked() {
-                            self.pages[self.current_page_index].programms.push(
+                            self.pages[self.current_page_index].program_links.push(
                                 ProgramLink::new(
-                                    "Plain Craft Launcher 2".to_string(),
-                                    "../assets/images/Lit_Furnace_JE7_BE2.png".to_string(),
-                                    r"D:\Softwares\1.21\Plain Craft Launcher 2.exe".to_string(),
+                                    "Bilibili".to_string(),
+                                    "file://src/assets/images/Impulse_Command_Block.gif".to_string(),
+                                    r"https://www.bilibili.com/".to_string(),
                                 )
                             );
                         }

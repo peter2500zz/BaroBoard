@@ -1,0 +1,30 @@
+{
+    "version": "123",
+    "pages": [
+        {
+            "title": "默认页面",
+            "program_links": [
+                {
+                    "name": "SpaceSniffer",
+                    "icon_path": "file://src/assets/images/Lit_Furnace_JE3_BE2.png",
+                    "run_command": "D:/Softwares/SpaceSniffer.exe"
+                },
+                {
+                    "name": "MAA",
+                    "icon_path": "file://src/assets/images/Grass_Block_JE7_BE6.png",
+                    "run_command": "D:/Softwares/MAA/MAA.exe"
+                }
+            ]
+        },
+        {
+            "title": "设置页面",
+            "program_links": [
+                {
+                    "name": "Plain Craft Launcher 2",
+                    "icon_path": "file://src/assets/images/Crafting_Table_JE4_BE3.png",
+                    "run_command": "D:/Softwares/1.21/Plain Craft Launcher 2.exe"
+                }
+            ]
+        }
+    ]
+}

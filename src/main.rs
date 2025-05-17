@@ -1,5 +1,6 @@
 mod my_structs;
 mod pages;
+mod links_config;
 
 use eframe::egui;
 use std::sync::Arc;
@@ -11,8 +12,9 @@ fn main() -> Result<(), eframe::Error> {
     let eframe_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([800., 500.])
-            .with_resizable(false),
-            
+            .with_resizable(false)
+            .with_title("BaroBoard 工具箱")
+            ,
         ..Default::default()
     };
     
@@ -22,7 +24,7 @@ fn main() -> Result<(), eframe::Error> {
         Box::new(|cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);
             setup_custom_fonts(&cc.egui_ctx);
-            Ok(Box::new(MyApp::new(cc)))
+            Ok(Box::new(MyApp::new()))
         }),
     )
 
@@ -66,12 +68,12 @@ impl MyApp {
     fn show_page(&mut self, ui: &mut egui::Ui) {
         if let Some(page) = self.pages.get(self.current_page_index) {
             // 每次选取6个程序，并显示在同一行
-            for chunk in page.programms.chunks(6) {
+            for chunk in page.program_links.chunks(6) {
                 ui.horizontal(|ui| {
                     for program in chunk {
                         let response = ui.add_sized(
                             egui::vec2(96.0, 96.0),
-                            egui::ImageButton::new(egui::include_image!("assets/images/Grass_Block_JE7_BE6.png"))
+                            egui::ImageButton::new(&program.icon_path)
                         ).on_hover_ui_at_pointer(|ui| {
                             ui.label(&program.name);
                         });
