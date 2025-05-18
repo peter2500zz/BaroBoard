@@ -48,19 +48,24 @@ pub struct MyApp {
     pub title: String,
     pub search_text: String,
     
+    // 设置窗口是否打开
     pub setting_open: bool,
+    pub setting_a_new_link: bool,
+    pub new_link_page: usize,
     // 需要删除的快捷方式
     pub link_should_delete: Option<(usize, usize)>,
     // 需要清理的图标
     pub icon_will_clean: Vec<String>,
     // 缓存图标
     pub cached_icon: HashMap<String, HashSet<String>>,
+    // 编辑模式
+    pub edit_mode: bool,
     // 设置窗口的UI closure
     pub current_setting_page: usize,
     pub current_setting_link: usize,
     // 修改快捷方式的临时变量
     pub temp_name: String,
-    pub temp_icon_path: String,
+    pub temp_icon_path: Option<String>,
     pub temp_run_command: String,
     // 配置文件错误
     pub conf_error: Option<(String, String)>,
@@ -89,16 +94,19 @@ impl MyApp {
             title: "Debug: 右键此条目".to_string(),
             search_text: "".to_string(),
             setting_open: false,
+            setting_a_new_link: false,
             current_setting_page: 0,
             current_setting_link: 0,
             temp_name: "".to_string(),
-            temp_icon_path: "".to_string(),
+            temp_icon_path: None,
             temp_run_command: "".to_string(),
             cached_icon: HashMap::new(),
             icon_will_clean: Vec::new(),
             link_should_delete: None,
             conf_error: None,
             called: true,
+            edit_mode: false,
+            new_link_page: 0,
         }
     }
 
