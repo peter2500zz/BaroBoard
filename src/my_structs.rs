@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProgramLink {
     pub name: String,
     pub icon_path: String,
@@ -23,7 +23,7 @@ impl ProgramLink {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Page {
     pub program_links: Vec<ProgramLink>,
     pub title: String,
@@ -48,6 +48,8 @@ pub struct MyApp {
     pub title: String,
     pub search_text: String,
     pub setting_open: bool,
+    pub page_should_delete: Option<(usize, usize)>,
+    pub icon_will_clean: Vec<String>,
     pub cached_icon: HashMap<String, HashSet<String>>,
     // 设置窗口的UI closure
     pub current_setting_page: usize,
@@ -55,6 +57,7 @@ pub struct MyApp {
     pub temp_name: String,
     pub temp_icon_path: String,
     pub temp_run_command: String,
+    pub conf_error: Option<(String, String)>,
 }
 
 impl MyApp {
@@ -84,7 +87,23 @@ impl MyApp {
             temp_icon_path: "".to_string(),
             temp_run_command: "".to_string(),
             cached_icon: HashMap::new(),
+            icon_will_clean: Vec::new(),
+            page_should_delete: None,
+            conf_error: None,
         }
+    }
+
+    fn clean_unused_icon(&mut self, ui: &mut egui::Ui) {
+        for icon_path in self.icon_will_clean.iter() {
+            if self.cached_icon.get(icon_path).map_or(true, |set| set.is_empty()) {
+                println!("clean: {}", icon_path);
+                ui.ctx().forget_image(&format!("file://{}", icon_path));
+                self.cached_icon.remove(icon_path);
+            } else {
+                println!("icon used by others, will not clean: {}", icon_path);
+            }
+        }
+        self.icon_will_clean.clear();
     }
 }
 
@@ -93,6 +112,7 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             // ui.heading("注册页面");
             self.main_ui(ui);
+            self.clean_unused_icon(ui);
         });
     }
 }
