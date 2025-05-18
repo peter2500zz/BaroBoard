@@ -47,17 +47,25 @@ pub struct MyApp {
     pub current_page_index: usize,
     pub title: String,
     pub search_text: String,
+    
     pub setting_open: bool,
-    pub page_should_delete: Option<(usize, usize)>,
+    // 需要删除的快捷方式
+    pub link_should_delete: Option<(usize, usize)>,
+    // 需要清理的图标
     pub icon_will_clean: Vec<String>,
+    // 缓存图标
     pub cached_icon: HashMap<String, HashSet<String>>,
     // 设置窗口的UI closure
     pub current_setting_page: usize,
     pub current_setting_link: usize,
+    // 修改快捷方式的临时变量
     pub temp_name: String,
     pub temp_icon_path: String,
     pub temp_run_command: String,
+    // 配置文件错误
     pub conf_error: Option<(String, String)>,
+    // 被唤起
+    pub called: bool,
 }
 
 impl MyApp {
@@ -78,7 +86,7 @@ impl MyApp {
         Self {
             pages,
             current_page_index: 0,
-            title: "默认页面".to_string(),
+            title: "Debug: 右键此条目".to_string(),
             search_text: "".to_string(),
             setting_open: false,
             current_setting_page: 0,
@@ -88,8 +96,9 @@ impl MyApp {
             temp_run_command: "".to_string(),
             cached_icon: HashMap::new(),
             icon_will_clean: Vec::new(),
-            page_should_delete: None,
+            link_should_delete: None,
             conf_error: None,
+            called: true,
         }
     }
 

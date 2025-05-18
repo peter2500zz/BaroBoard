@@ -2,6 +2,7 @@ use eframe::egui::{self, Align, Layout};
 use std::process::Command;
 use std::collections::HashSet;
 use rfd;
+use strsim::jaro_winkler;
 
 use crate::my_structs::*;
 
@@ -38,7 +39,51 @@ impl MyApp {
                 });
 
                 ui.vertical_centered(|ui: &mut egui::Ui| {
-                    ui.add(egui::TextEdit::singleline(&mut self.search_text).hint_text("搜索"));
+                    let search_text = ui.add(egui::TextEdit::singleline(&mut self.search_text).hint_text("搜索"));
+                    if self.called {
+                        search_text.request_focus();
+                        self.called = false;
+                    }
+                    
+                    if self.search_text != "" {
+                        search_text.show_tooltip_ui(|ui| {
+                            let mut results: Vec<(ProgramLink, f64)> = self.pages[self.current_page_index].program_links
+                                .iter()
+                                .map(|name| (name.clone(), jaro_winkler(&self.search_text, &name.name)))
+                                .filter(|(_, score)| *score > 0.5) // 设置相似度阈值
+                                .collect();
+                            
+                            // 按相似度降序排列
+                            results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                            
+                            if !results.is_empty() {
+                                for (program, score) in results {
+                                    ui.horizontal(|ui| {
+                                        if ui.selectable_label(false, &program.name).clicked() {
+                                            println!("选中的程序: {} 权重: {}", program.name, score);
+                                            match Command::new(&program.run_command).spawn() {
+                                                Ok(_) => println!("运行成功"),
+                                                Err(e) => {
+                                                    println!("运行失败: {}", e);
+                                                },
+                                            }
+                                            self.search_text = "".to_string();
+                                        }
+                                    });
+                                }
+                            } else {
+                                ui.horizontal(|ui| {
+                                    ui.label(egui::RichText::new("没有找到相关程序").weak());
+                                });
+                            }
+
+                            
+                        });
+                    }
+
+                    // if search_text.lost_focus() {
+                    //     self.search_text = "".to_string();
+                    // }
                 });
                 
             });
@@ -93,6 +138,7 @@ impl MyApp {
     }
 
     fn show_page(&mut self, ui: &mut egui::Ui) {
+        // 配置文件弹窗
         if let Some((title, message)) = self.conf_error.clone() {
             egui::Window::new(title)
             .title_bar(false)
@@ -130,8 +176,8 @@ impl MyApp {
             });
         }
 
-
-        if let Some((page_index, link_index)) = self.page_should_delete {
+        // 删除快捷方式弹窗
+        if let Some((page_index, link_index)) = self.link_should_delete {
             self.setting_open = false;
 
             egui::Window::new("你确定要删除这个快捷方式吗？")
@@ -171,10 +217,10 @@ impl MyApp {
                                         ));
                                     },
                                 };
-                                self.page_should_delete = None;
+                                self.link_should_delete = None;
                             }
                             if ui.button("取消").clicked() {
-                                self.page_should_delete = None;
+                                self.link_should_delete = None;
                             }
                         });
                     });
@@ -182,6 +228,7 @@ impl MyApp {
             });
         }
 
+        // 设置快捷方式弹窗
         if self.setting_open {
             // 设置页面
             egui::Window::new("配置快捷方式")
@@ -209,10 +256,9 @@ impl MyApp {
 
                 ui.horizontal(|ui| {
                     ui.label("名称");
-                    ui.add(egui::TextEdit::singleline(&mut self.temp_name).hint_text("名称"));
+                    ui.add(egui::TextEdit::singleline(&mut self.temp_name).hint_text("e.g. 记事本"));
+                    
                 });
-
-                // ui.add(egui::TextEdit::singleline(&mut self.temp_icon_path).hint_text("图标路径"));
 
                 ui.horizontal(|ui| {
                     ui.label("命令");
@@ -266,6 +312,7 @@ impl MyApp {
             });
         };
 
+        // 显示页面
         if let Some(page) = self.pages.get(self.current_page_index) {
             // 每次选取6个程序，并显示在同一行
             let chunks: Vec<_> = page.program_links.chunks(6).collect();
@@ -345,7 +392,7 @@ impl MyApp {
                                     
                                     println!("删除");
                                     
-                                    self.page_should_delete = Some((self.current_page_index, link_index));
+                                    self.link_should_delete = Some((self.current_page_index, link_index));
                                     
                                     ui.close_menu();
                                 }
