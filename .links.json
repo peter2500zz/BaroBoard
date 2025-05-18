@@ -7,12 +7,14 @@
                 {
                     "name": "SpaceSniffer",
                     "icon_path": "src/assets/images/Lit_Furnace_JE3_BE2.png",
-                    "run_command": "D:/Softwares/SpaceSniffer.exe"
+                    "run_command": "D:/Softwares/SpaceSniffer.exe",
+                    "uuid": "123"
                 },
                 {
                     "name": "MAA",
                     "icon_path": "src/assets/images/Grass_Block_JE7_BE6.png",
-                    "run_command": "D:/Softwares/MAA/MAA.exe"
+                    "run_command": "D:/Softwares/MAA/MAA.exe",
+                    "uuid": "456"
                 }
             ]
         },
@@ -22,7 +24,8 @@
                 {
                     "name": "Plain Craft Launcher 2",
                     "icon_path": "src/assets/images/Crafting_Table_JE4_BE3.png",
-                    "run_command": "D:/Softwares/1.21/Plain Craft Launcher 2.exe"
+                    "run_command": "D:/Softwares/1.21/Plain Craft Launcher 2.exe",
+                    "uuid": "789"
                 }
             ]
         }

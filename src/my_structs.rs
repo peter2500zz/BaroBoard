@@ -1,5 +1,7 @@
 use eframe::egui;
 use serde::{Serialize, Deserialize};
+use std::collections::{HashMap, HashSet};
+use uuid::Uuid;
 
 
 #[derive(Serialize, Deserialize)]
@@ -7,6 +9,7 @@ pub struct ProgramLink {
     pub name: String,
     pub icon_path: String,
     pub run_command: String,
+    pub uuid: String,
 }
 
 impl ProgramLink {
@@ -15,6 +18,7 @@ impl ProgramLink {
             name: name,
             icon_path: icon_path,
             run_command: run_command,
+            uuid: Uuid::new_v4().to_string(),
         }
     }
 }
@@ -44,9 +48,13 @@ pub struct MyApp {
     pub title: String,
     pub search_text: String,
     pub setting_open: bool,
+    pub cached_icon: HashMap<String, HashSet<String>>,
     // 设置窗口的UI closure
     pub current_setting_page: usize,
     pub current_setting_link: usize,
+    pub temp_name: String,
+    pub temp_icon_path: String,
+    pub temp_run_command: String,
 }
 
 impl MyApp {
@@ -72,6 +80,10 @@ impl MyApp {
             setting_open: false,
             current_setting_page: 0,
             current_setting_link: 0,
+            temp_name: "".to_string(),
+            temp_icon_path: "".to_string(),
+            temp_run_command: "".to_string(),
+            cached_icon: HashMap::new(),
         }
     }
 }
