@@ -37,6 +37,7 @@ impl Page {
 }
 
 
+
 pub struct MyApp {
     pub pages: Vec<Page>,
     pub current_page_index: usize,
@@ -44,12 +45,13 @@ pub struct MyApp {
     pub search_text: String,
     pub setting_open: bool,
     // 设置窗口的UI closure
-    pub setting_ui_closure: Option<Box<dyn Fn(&mut egui::Ui) -> ()>>,
+    pub current_setting_page: usize,
+    pub current_setting_link: usize,
 }
 
 impl MyApp {
     pub fn new() -> Self {
-        let pages = match Self::load_conf("src/.links.json") {
+        let pages = match Self::load_conf(".links.json") {
             Ok(links_config) => {
                 links_config.pages
             },
@@ -68,7 +70,8 @@ impl MyApp {
             title: "默认页面".to_string(),
             search_text: "".to_string(),
             setting_open: false,
-            setting_ui_closure: None,
+            current_setting_page: 0,
+            current_setting_link: 0,
         }
     }
 }

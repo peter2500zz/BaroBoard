@@ -4,7 +4,6 @@ mod links_config;
 
 use eframe::egui;
 use std::sync::Arc;
-use std::process::Command;
 
 use crate::my_structs::*;
 
@@ -61,62 +60,5 @@ fn setup_custom_fonts(ctx: &egui::Context) {
 
     // 将加载的字体设置到 egui 的上下文中
     ctx.set_fonts(fonts);
-}
-
-
-impl MyApp {
-    fn show_page(&mut self, ui: &mut egui::Ui) {
-        if let Some(page) = self.pages.get(self.current_page_index) {
-            // 每次选取6个程序，并显示在同一行
-            for chunk in page.program_links.chunks(6) {
-                ui.horizontal(|ui| {
-                    for program in chunk {
-                        let response = ui.add_sized(
-                            egui::vec2(96.0, 96.0),
-                            egui::ImageButton::new(&program.icon_path)
-                        ).on_hover_ui_at_pointer(|ui| {
-                            ui.label(&program.name);
-                        });
-                        
-                        if response.clicked() {
-                            match Command::new(&program.run_command).spawn() {
-                                Ok(_) => println!("运行成功"),
-                                Err(e) => {
-                                    println!("运行失败: {}", e);
-                                    
-                                },
-                            }
-                        }
-                        
-                        response.context_menu(|ui| {
-                            ui.label(&program.name);
-
-                            if ui.button("运行")
-                            .clicked() {
-                                println!("运行");
-                                ui.close_menu();
-                            }
-                            if ui.button("修改")
-                            .clicked() {
-                                if !self.setting_open {
-                                    self.setting_open = true;
-                                    self.setting_ui_closure = Some(Box::new(|ui| {
-                                        ui.label("哈？");
-                                    }));
-                                }
-                                ui.close_menu();
-                            }
-                            
-                            if ui.button("删除")
-                            .clicked() {
-                                println!("删除");
-                                ui.close_menu();
-                            }
-                        });
-                    }
-                });
-            }
-        }
-    }
 }
 
