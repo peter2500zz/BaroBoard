@@ -1,7 +1,6 @@
 use eframe::egui::{self, Align, Layout};
 use std::process::Command;
 use std::collections::HashSet;
-use rfd;
 use strsim::jaro_winkler;
 
 use crate::my_structs::*;
@@ -130,11 +129,13 @@ impl MyApp {
             });
             // });
             egui::ScrollArea::vertical().show(ui, |ui| {
+                self.show_setting_window(ui);
                 self.show_page(ui);
             });
         });
     }
 
+   
     fn show_page(&mut self, ui: &mut egui::Ui) {
         // 配置文件弹窗
         if let Some((title, message)) = self.conf_error.clone() {
@@ -178,7 +179,7 @@ impl MyApp {
 
         // 删除快捷方式弹窗
         if let Some((page_index, link_index)) = self.link_should_delete {
-            self.setting_open = false;
+            self.link_config.need_config = false;
 
             egui::Window::new("你确定要删除这个快捷方式吗？")
             .title_bar(false)
@@ -228,135 +229,6 @@ impl MyApp {
             });
         }
 
-        // 设置快捷方式弹窗
-        if self.setting_open {
-            // 设置页面
-            egui::Window::new("配置快捷方式")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
-            // .open(&mut self.setting_open)
-
-            .show(ui.ctx(), |ui| {
-                
-                if ui.add_sized(
-                    egui::vec2(96.0, 96.0),
-                    egui::ImageButton::new(format!("file://{}", &self.temp_icon_path.clone().unwrap_or("".to_string())))
-                ).clicked() {
-                    println!("点击了图片");
-                    if let Some(path) = rfd::FileDialog::new()
-                    .add_filter("text", &["png", "svg", "gif"])
-                    .pick_file() {
-                        // println!("{}", path.display());
-                        if let Some(icon_path) = self.temp_icon_path.clone() {
-                            self.icon_will_clean.push(icon_path);
-                        }
-                        self.temp_icon_path = Some(path.display().to_string());
-                    }
-                }
-                
-                ui.label(&self.temp_icon_path.clone().unwrap_or("↑ 点击添加图片".to_string()));
-
-                ui.horizontal(|ui| {
-                    ui.label("名称");
-                    ui.add(egui::TextEdit::singleline(&mut self.temp_name).hint_text("e.g. 记事本"));
-                    
-                });
-
-                ui.horizontal(|ui| {
-                    ui.label("命令");
-                    ui.add(egui::TextEdit::singleline(&mut self.temp_run_command).hint_text("e.g. C:\\Windows\\System32\\notepad.exe"));
-                });
-
-                ui.separator();
-                // 保存与取消按钮
-                ui.with_layout(Layout {
-                    cross_align: Align::RIGHT,
-                    ..Default::default()
-                }, |ui| {ui.horizontal(|ui| {
-                    if self.setting_a_new_link {
-                        ui.horizontal(|ui| {
-                            if self.temp_icon_path.is_none() {
-                                ui.disable();
-                            }
-
-                            let response = ui.button("创建");
-                            let clicked = response.clicked();
-                            if self.temp_icon_path.is_none() {
-                                response.on_hover_text_at_pointer("请先添加图片");
-                            }
-                            
-                            if clicked {
-                                println!("创建");
-                                // 创建不需要清除之前的图片缓存
-                                self.pages[self.new_link_page].program_links.push(
-                                    ProgramLink::new(
-                                        self.temp_name.clone(),
-                                        self.temp_icon_path.clone().unwrap_or("".to_string()),
-                                        self.temp_run_command.clone(),
-                                    )
-                                );
-                                
-                                match self.save_conf() {
-                                    Ok(_) => println!("保存成功"),
-                                    Err(e) => {
-                                        println!("保存失败: {}", e);
-                                        self.conf_error = Some((
-                                            "无法写入配置文件！".to_string(),
-                                            "你可以尝试删除配置文件并再次保存".to_string()
-                                        ));
-                                    },
-                                };
-
-                                self.setting_a_new_link = false;
-                                self.setting_open = false;
-                            }
-                        });
-                        
-                    } else {
-                        if ui.button("保存").clicked() {
-                            println!("保存");
-                            let current_link = &mut self.pages[self.current_setting_page].program_links[self.current_setting_link];
-                            // 尝试移除之前的缓存标记
-                            if let Some(icon_path) = self.cached_icon.get_mut(&current_link.icon_path) {
-                                icon_path.remove(&current_link.uuid);
-                            } else {
-                                // 如果不行则强制清空
-                                self.cached_icon.insert(current_link.icon_path.clone(), HashSet::new());
-                            }
-
-                            // 如果缓存为空，则删除缓存
-                            self.icon_will_clean.push(current_link.icon_path.clone());
-
-                            current_link.name = self.temp_name.clone();
-                            current_link.icon_path = self.temp_icon_path.clone().unwrap_or("".to_string());
-                            current_link.run_command = self.temp_run_command.clone();
-
-                            match self.save_conf() {
-                                Ok(_) => println!("保存成功"),
-                                Err(e) => {
-                                    println!("保存失败: {}", e);
-                                    self.conf_error = Some((
-                                        "无法写入配置文件！".to_string(),
-                                        "你可以尝试删除配置文件并再次保存".to_string()
-                                    ));
-                                },
-                            };
-                            
-                            self.setting_open = false;
-                        }
-                    }
-
-                    if ui.button("取消").clicked() {
-                        println!("取消");
-                        // 如果此图片没有被其他程序使用，则删除缓存
-                        self.icon_will_clean.push(self.temp_icon_path.clone().unwrap_or("".to_string()));
-                        self.setting_open = false;
-                    }
-                })});
-            });
-        };
-
         // 显示页面
         if let Some(page) = self.pages.get(self.current_page_index) {
             // 每次选取6个程序，并显示在同一行
@@ -385,18 +257,10 @@ impl MyApp {
                             // })
                             ;
                             
-                            if !self.setting_open {
+                            if !self.link_config.need_config {
                                 if self.edit_mode && response.clicked() {
                                     // 打开设置窗口
-                                    self.setting_open = true;
-                                    self.setting_a_new_link = false;
-                                    // 设置当前设置页面和链接
-                                    self.current_setting_page = self.current_page_index;
-                                    self.current_setting_link = link_index;
-
-                                    self.temp_name = program.name.clone();
-                                    self.temp_icon_path = Some(program.icon_path.clone());
-                                    self.temp_run_command = program.run_command.clone();
+                                    self.link_config.config_existing_link(LinkPosition::new(self.current_page_index, link_index), program);
 
                                 } else {
                                     if response.clicked() {
@@ -429,24 +293,7 @@ impl MyApp {
                                             ui.close_menu();
                                         }
                                         if ui.button("编辑").clicked() {
-                                            // println!("{:?}", self.cached_icon);
-                                            // // 先关掉已经打开的设置窗口
-                                            // if self.setting_open {
-                                            //     self.setting_open = false;
-                                            //     // 清除之前设置窗口的临时图片
-                                            //     self.icon_will_clean.push(self.temp_icon_path.clone());
-                                            // }
-                                            // 打开设置窗口
-                                            self.setting_open = true;
-                                            self.setting_a_new_link = false;
-                                            // 设置当前设置页面和链接
-                                            self.current_setting_page = self.current_page_index;
-                                            self.current_setting_link = link_index;
-
-                                            self.temp_name = program.name.clone();
-                                            self.temp_icon_path = Some(program.icon_path.clone());
-                                            self.temp_run_command = program.run_command.clone();
-                                            // println!("{} {} {}", self.current_setting_page, self.current_setting_link, self.pages.len());
+                                            self.link_config.config_existing_link(LinkPosition::new(self.current_page_index, link_index), program);
                                             ui.close_menu();
                                         }
                                         
@@ -482,23 +329,17 @@ impl MyApp {
                     };
 
                     // 只有在不是最后一个chunk时才添加间隔
-                    if i == chunks.len() - 1 && chunk.len() < 6 && self.edit_mode{
+                    if i == chunks.len() - 1 && chunk.len() < 6 && self.edit_mode {
                         show_on_next_line = false;
                         ui.vertical(|ui| {
                             let response = ui.add_sized(
                                 egui::vec2(96.0, 96.0),
                                 egui::Button::new(egui::RichText::new("➕").size(48.))
                             );
-                            if response.clicked() && !self.setting_open  {
+                            if response.clicked() && !self.link_config.need_config  {
                                 println!("点击了添加按钮");
 
-                                self.temp_icon_path = None;
-                                self.temp_name = "".to_string();
-                                self.temp_run_command = "".to_string();
-
-                                self.setting_a_new_link = true;
-                                self.setting_open = true;
-                                self.new_link_page = self.current_page_index;
+                                self.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
                             }
             
                         });
@@ -517,20 +358,28 @@ impl MyApp {
                             egui::vec2(96.0, 96.0),
                             egui::Button::new(egui::RichText::new("➕").size(48.))
                         );
-                        if response.clicked() && !self.setting_open  {
+                        if response.clicked() && !self.link_config.need_config  {
                             println!("点击了添加按钮");
 
-                            self.temp_icon_path = Some("点击添加快捷方式图片".to_string());
-                            self.temp_name = "".to_string();
-                            self.temp_run_command = "".to_string();
-
-                            self.setting_a_new_link = true;
-                            self.setting_open = true;
-                            self.new_link_page = self.current_page_index;
+                            self.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
                         }
                     });
                 }
             };
+
+            if chunks.is_empty() && self.edit_mode {
+                ui.vertical(|ui| {
+                    let response = ui.add_sized(
+                        egui::vec2(96.0, 96.0),
+                        egui::Button::new(egui::RichText::new("➕").size(48.))
+                    );
+                    if response.clicked() && !self.link_config.need_config  {
+                        println!("点击了添加按钮");
+
+                        self.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
+                    }
+                });
+            }
         }
     }
 }
