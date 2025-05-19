@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use crate::my_structs::*;
 
+
 fn main() -> Result<(), eframe::Error> {
     let eframe_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -101,4 +102,3 @@ fn setup_custom_fonts(ctx: &egui::Context) {
     // 将字体设置应用到 egui 上下文
     ctx.set_fonts(fonts);
 }
-

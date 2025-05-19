@@ -2,6 +2,7 @@ use eframe::egui;
 use std::process::Command;
 use std::collections::HashSet;
 use strsim::jaro_winkler;
+use pinyin::ToPinyin;
 
 use crate::my_structs::*;
 
@@ -38,46 +39,60 @@ impl MyApp {
                     // 搜索框占据中间位置
                     let search_text = ui.add(egui::TextEdit::singleline(&mut self.search_text).hint_text("搜索"));
                     
+                    // 如果程序被唤起，则请求焦点
                     if self.called {
                         search_text.request_focus();
                         self.called = false;
                     }
-                    
-                    if self.search_text != "" {
-                        search_text.show_tooltip_ui(|ui| {
-                            let mut results: Vec<(ProgramLink, f64)> = self.pages[self.current_page_index].program_links
-                                .iter()
-                                .map(|name| {
-                                    // TODO! 应当处理大小写 空格 
-                                    (name.clone(), jaro_winkler(&self.search_text, &name.name))
-                                })
-                                .filter(|(_, score)| *score > 0.5) // 设置相似度阈值
-                                .collect();
-                            
-                            // 按相似度降序排列
-                            results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-                            
-                            if !results.is_empty() {
-                                for (program, score) in results {
-                                    ui.horizontal(|ui| {
-                                        if ui.selectable_label(false, &program.name).clicked() {
-                                            println!("选中的程序: {} 权重: {}", program.name, score);
-                                            match Command::new(&program.run_command).spawn() {
-                                                Ok(_) => println!("运行成功"),
-                                                Err(e) => {
-                                                    println!("运行失败: {}", e);
-                                                },
-                                            }
-                                            self.search_text = "".to_string();
-                                        }
-                                    });
+
+                    // 如果搜索框里有内容，则进行搜索
+                    if !self.search_text.is_empty() {
+                        // 计算相似度
+                        let mut results: Vec<(ProgramLink, f64)> = self.pages[self.current_page_index].program_links
+                            .iter()
+                            .map(|program_link| {
+                                // 计算多种情况下的相似度得分
+                                let original_score = jaro_winkler(&self.search_text, &program_link.name);
+                                
+                                let pinyin_score = jaro_winkler(
+                                    &self.search_text, 
+                                    &program_link.name.chars().map(|c| {
+                                        c.to_pinyin()
+                                        .map(|p| p.plain().to_string())
+                                        .unwrap_or_else(|| c.to_string())
+                                }).collect::<String>());
+                                
+                                // 取最高分
+                                let max_score = original_score
+                                    .max(pinyin_score);
+
+                                (program_link.clone(), max_score)
+                            })
+                            // 设置相似度阈值
+                            .filter(|(_, score)| *score > 0.5)
+                            .collect();
+                        
+                        // 按相似度降序排列
+                        results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+                        if !results.is_empty() {
+                            // 更新排序后的程序列表
+                            self.sorted_program_links = results.iter().map(|(program, _)| program.clone()).collect();
+                            if ui.ctx().input(|i| i.key_pressed(egui::Key::Enter)) {
+                                println!("选中的程序: {} 权重: {}", results[0].0.name, results[0].1);
+                                match Command::new(&results[0].0.run_command).spawn() {
+                                    Ok(_) => println!("{} 运行成功", results[0].0.name),
+                                    Err(e) => {
+                                        println!("{} 运行失败: {}", results[0].0.name, e);
+                                    },
                                 }
-                            } else {
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("没有找到相关程序").weak());
-                                });
+                                self.search_text = "".to_string();
                             }
-                        });
+                            
+                        } else {
+                            // 如果搜索框里没有内容，则清空排序后的程序列表
+                            self.sorted_program_links.clear();
+                        }
                     }
                 });
             });
@@ -95,31 +110,6 @@ impl MyApp {
                 self.side_bar(ui);
             });
         });
-
-        // egui::SidePanel::right("right_panel")
-        // .resizable(true)
-        // .default_width(150.0)
-        // .width_range(80.0..=200.0)
-        // .show_inside(ui, |ui| {
-        //     ui.vertical_centered(|ui| {
-        //         ui.heading("右导航栏");
-        //     });
-        //     egui::ScrollArea::vertical().show(ui, |ui| {
-        //         ui.label("右导航栏内容");
-        //     });
-        // });
-
-        // egui::TopBottomPanel::bottom("bottom_panel")
-        // .resizable(false)
-        // .min_height(0.0)
-        // .show_inside(ui, |ui| {
-        //     ui.vertical_centered(|ui| {
-        //         ui.heading("状态栏");
-        //     });
-        //     ui.vertical_centered(|ui| {
-        //         ui.label("状态栏内容");
-        //     });
-        // });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
             // ui.vertical_centered(|ui| {
@@ -142,11 +132,18 @@ impl MyApp {
 
 
     fn show_page(&mut self, ui: &mut egui::Ui) {
-
         // 显示页面
         if let Some(page) = self.pages.get(self.current_page_index) {
+            
+            // 如果搜索框里有内容，则使用排序后的程序列表，否则使用页面中的程序列表
+            let chunks: Vec<_> = (if self.search_text.is_empty() {
+                &page.program_links
+            } else {
+                &self.sorted_program_links
+            })
             // 每次选取6个程序，并显示在同一行
-            let chunks: Vec<_> = page.program_links.chunks(6).collect();
+            .chunks(6).collect();
+
             // 新建链接的按钮
             let mut show_on_next_line = true;
 
@@ -165,11 +162,7 @@ impl MyApp {
                             let response = ui.add_sized(
                                 egui::vec2(96.0, 96.0),
                                 egui::ImageButton::new(format!("file://{}", &program.icon_path))
-                            )
-                            // .on_hover_ui_at_pointer(|ui| {
-                            //     ui.label(&program.name);
-                            // })
-                            ;
+                            );
                             
                             if !self.link_popups.link_config.called {
                                 if self.edit_mode && response.clicked() {
@@ -179,27 +172,33 @@ impl MyApp {
                                 } else {
                                     if response.clicked() {
                                         match Command::new(&program.run_command).spawn() {
-                                            Ok(_) => println!("运行成功"),
+                                            Ok(_) => println!("{} 运行成功", program.name),
                                             Err(e) => {
-                                                println!("运行失败: {}", e);
+                                                println!("{} 运行失败: {}", program.name, e);
                                                 
                                             },
                                         }
                                     }
                                     
+                                    // 右键点击图标，显示上下文菜单
                                     response.context_menu(|ui| {
+                                        // 显示名称
                                         ui.horizontal(|ui| {
-                                            ui.label(&program.name);
+                                            ui.label(if program.name.is_empty() {
+                                                egui::RichText::new("未命名").weak()
+                                            } else {
+                                                egui::RichText::new(&program.name)
+                                            });
                                         });
+
+                                        ui.separator();
             
                                         if ui.button("运行")
                                         .clicked() {
-                                            println!("运行");
-
                                             match Command::new(&program.run_command).spawn() {
-                                                Ok(_) => println!("运行成功"),
+                                                Ok(_) => println!("{} 运行成功", program.name),
                                                 Err(e) => {
-                                                    println!("运行失败: {}", e);
+                                                    println!("{} 运行失败: {}", program.name, e);
                                                     
                                                 },
                                             }
@@ -213,8 +212,6 @@ impl MyApp {
                                         
                                         if ui.button("删除")
                                         .clicked() {
-                                            
-                                            println!("删除");
                                             
                                             self.link_popups.link_delete.delete_link(self.current_page_index, link_index);
                                             
@@ -251,8 +248,6 @@ impl MyApp {
                                 egui::Button::new(egui::RichText::new("➕").size(48.))
                             );
                             if response.clicked() && !self.link_popups.link_config.called  {
-                                println!("点击了添加按钮");
-
                                 self.link_popups.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
                             }
             
@@ -273,8 +268,6 @@ impl MyApp {
                             egui::Button::new(egui::RichText::new("➕").size(48.))
                         );
                         if response.clicked() && !self.link_popups.link_config.called  {
-                            println!("点击了添加按钮");
-
                             self.link_popups.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
                         }
                     });
@@ -288,8 +281,6 @@ impl MyApp {
                         egui::Button::new(egui::RichText::new("➕").size(48.))
                     );
                     if response.clicked() && !self.link_popups.link_config.called  {
-                        println!("点击了添加按钮");
-
                         self.link_popups.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
                     }
                 });

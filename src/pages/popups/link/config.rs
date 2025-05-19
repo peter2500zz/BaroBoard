@@ -31,6 +31,7 @@ impl LinkConfig {
         }
     }
 
+
     pub fn config_existing_link(&mut self, position: LinkPosition, link: &ProgramLink) {
         self.called = true;
         self.is_new_link = false;
@@ -42,6 +43,7 @@ impl LinkConfig {
         self.run_command = link.run_command.clone();
     }
 
+    
     pub fn config_new_link(&mut self, position: LinkPosition) {
         self.called = true;
         self.is_new_link = true;
@@ -73,7 +75,7 @@ impl MyApp {
                 egui::vec2(96.0, 96.0),
                 egui::ImageButton::new(format!("file://{}", &self.link_popups.link_config.icon_path.clone().unwrap_or("你还没有添加任何图片！".to_string())))
             ).clicked() {
-                println!("点击了图片");
+                
                 if let Some(path) = rfd::FileDialog::new()
                 .add_filter("图片", &["png", "svg", "gif"])
                 .pick_file() {
@@ -117,7 +119,6 @@ impl MyApp {
                         }
                         
                         if clicked {
-                            println!("创建");
                             // 创建不需要清除之前的图片缓存
                             self.pages[self.link_popups.link_config.page_to_save].program_links.push(
                                 ProgramLink::new(
@@ -142,7 +143,6 @@ impl MyApp {
                     
                 } else {
                     if ui.button("保存").clicked() {
-                        println!("保存");
                         let current_link = &mut self.pages[self.link_popups.link_config.page_to_save].program_links[self.link_popups.link_config.index_of_the_link];
                         // 尝试移除之前的缓存标记
                         if let Some(icon_path) = self.cached_icon.get_mut(&current_link.icon_path) {
@@ -172,7 +172,6 @@ impl MyApp {
                 }
 
                 if ui.button("取消").clicked() {
-                    println!("取消");
                     // 如果此图片没有被其他程序使用，则删除缓存
                     if let Some(icon_path) = self.link_popups.link_config.icon_path.clone() {
                         self.icon_will_clean.push(icon_path);
@@ -182,6 +181,5 @@ impl MyApp {
             })});
         });
     }
-
 }
 

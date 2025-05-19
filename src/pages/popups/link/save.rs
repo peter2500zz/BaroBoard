@@ -11,6 +11,7 @@ pub struct LinkConfigSchema {
     pub pages: Vec<Page>
 }
 
+
 pub struct LinkSave {
     pub error_called: bool,
 }
@@ -35,9 +36,11 @@ impl LinkSave {
         Ok(links_config)
     }
 
+
     pub fn save_conf(&self, pages: Vec<Page>) -> Result<(), std::io::Error> {
         self.save_conf_to_path(pages, ".links.json")
     }
+
 
     pub fn save_conf_to_path(&self, pages: Vec<Page>, path: &str) -> Result<(), std::io::Error> {
         let links_config = LinkConfigSchema {

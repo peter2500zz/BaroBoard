@@ -35,6 +35,7 @@ impl ProgramLink {
     }
 }
 
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Page {
     pub program_links: Vec<ProgramLink>,
@@ -80,6 +81,7 @@ pub struct MyApp {
     pub current_page_index: usize,
     pub title: String,
     pub search_text: String,
+    pub sorted_program_links: Vec<ProgramLink>,
     
     // 设置相关
     pub link_popups: LinkPopups,
@@ -114,6 +116,7 @@ impl MyApp {
             current_page_index: 0,
             title: "Debug: 右键此条目".to_string(),
             search_text: "".to_string(),
+            sorted_program_links: Vec::new(),
             link_popups: LinkPopups::new(),
             cached_icon: HashMap::new(),
             icon_will_clean: Vec::new(),
@@ -122,29 +125,25 @@ impl MyApp {
         }
     }
 
+
     fn clean_unused_icon(&mut self, ui: &mut egui::Ui) {
         for icon_path in self.icon_will_clean.iter() {
             if self.cached_icon.get(icon_path).map_or(true, |set| set.is_empty()) {
-                println!("clean: {}", icon_path);
+                println!("释放图片资源 {}", icon_path);
                 ui.ctx().forget_image(&format!("file://{}", icon_path));
                 self.cached_icon.remove(icon_path);
             } else {
-                println!("icon used by others, will not clean: {}", icon_path);
+                println!("图片仍在被使用，将不会释放 {}", icon_path);
             }
         }
         self.icon_will_clean.clear();
     }
 }
 
+
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            // ui.heading("注册页面");
-            // egui::Window::new("🔍 Inspection")
-            // .vscroll(true)
-            // .show(ctx, |ui| {
-            //     ctx.inspection_ui(ui);
-            // });
             self.main_ui(ui);
             self.clean_unused_icon(ui);
         });

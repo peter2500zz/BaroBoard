@@ -18,12 +18,14 @@ impl LinkDelete {
         }
     }
 
+
     pub fn delete_link(&mut self, page_index: usize, link_index: usize) {
         self.page_to_delete = page_index;
         self.index_of_the_link = link_index;
         self.delete_called = true;
     }
 }
+
 
 impl MyApp {
     pub fn show_delete_link(&mut self, ui: &mut egui::Ui) {
@@ -81,4 +83,3 @@ impl MyApp {
         });
     }
 }
-
