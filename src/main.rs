@@ -1,6 +1,5 @@
 mod my_structs;
 mod pages;
-mod links_config;
 
 use eframe::egui;
 use std::sync::Arc;

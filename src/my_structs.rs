@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
-use crate::pages::popups::config_link::LinkConfig;
+use crate::pages::popups::{config_link::LinkConfig, config_save::ConfigSave};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProgramLink {
@@ -65,24 +65,21 @@ pub struct MyApp {
     
     // 设置相关
     pub link_config: LinkConfig,
+    pub config_save: ConfigSave,
     
-    // 需要删除的快捷方式
-    pub link_should_delete: Option<(usize, usize)>,
     // 需要清理的图标
     pub icon_will_clean: Vec<String>,
     // 缓存图标
     pub cached_icon: HashMap<String, HashSet<String>>,
     // 编辑模式
     pub edit_mode: bool,
-    // 配置文件错误
-    pub conf_error: Option<(String, String)>,
     // 被唤起
     pub called: bool,
 }
 
 impl MyApp {
     pub fn new() -> Self {
-        let pages = match Self::load_conf(".links.json") {
+        let pages = match ConfigSave::load_conf(".links.json") {
             Ok(links_config) => {
                 links_config.pages
             },
@@ -103,8 +100,7 @@ impl MyApp {
             link_config: LinkConfig::new(),
             cached_icon: HashMap::new(),
             icon_will_clean: Vec::new(),
-            link_should_delete: None,
-            conf_error: None,
+            config_save: ConfigSave::new(),
             called: true,
             edit_mode: false,
         }

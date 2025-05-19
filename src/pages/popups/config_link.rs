@@ -6,12 +6,11 @@ use crate::my_structs::*;
 
 
 pub struct LinkConfig {
-    pub need_config: bool,
+    pub called: bool,
     is_new_link: bool,
     
     page_to_save: usize,
     index_of_the_link: usize,
-
 
     // 临时变量们
     pub name: String,
@@ -22,7 +21,7 @@ pub struct LinkConfig {
 impl LinkConfig {
     pub fn new() -> Self {
         Self {
-            need_config: false,
+            called: false,
             is_new_link: false,
             page_to_save: 0,
             index_of_the_link: 0,
@@ -33,7 +32,7 @@ impl LinkConfig {
     }
 
     pub fn config_existing_link(&mut self, position: LinkPosition, link: &ProgramLink) {
-        self.need_config = true;
+        self.called = true;
         self.is_new_link = false;
         self.page_to_save = position.page_index;
         self.index_of_the_link = position.link_index;
@@ -44,7 +43,7 @@ impl LinkConfig {
     }
 
     pub fn config_new_link(&mut self, position: LinkPosition) {
-        self.need_config = true;
+        self.called = true;
         self.is_new_link = true;
         self.page_to_save = position.page_index;
 
@@ -66,7 +65,7 @@ impl MyApp {
         
         .fade_in(true)
         .fade_out(true)
-        .open(&mut self.link_config.need_config.clone())
+        .open(&mut self.link_config.called.clone())
 
         .show(ui.ctx(), |ui| {
             
@@ -128,19 +127,16 @@ impl MyApp {
                                 )
                             );
                             
-                            match self.save_conf() {
+                            match self.config_save.save_conf(self.pages.clone()) {
                                 Ok(_) => println!("保存成功"),
                                 Err(e) => {
                                     println!("保存失败: {}", e);
-                                    self.conf_error = Some((
-                                        "无法写入配置文件！".to_string(),
-                                        "你可以尝试删除配置文件并再次保存".to_string()
-                                    ));
+                                    self.config_save.error_called = true;
                                 },
                             };
 
                             self.link_config.is_new_link = false;
-                            self.link_config.need_config = false;
+                            self.link_config.called = false;
                         }
                     });
                     
@@ -163,18 +159,15 @@ impl MyApp {
                         current_link.icon_path = self.link_config.icon_path.clone().unwrap_or("".to_string());
                         current_link.run_command = self.link_config.run_command.clone();
 
-                        match self.save_conf() {
+                        match self.config_save.save_conf(self.pages.clone()) {
                             Ok(_) => println!("保存成功"),
                             Err(e) => {
                                 println!("保存失败: {}", e);
-                                self.conf_error = Some((
-                                    "无法写入配置文件！".to_string(),
-                                    "你可以尝试删除配置文件并再次保存".to_string()
-                                ));
+                                self.config_save.error_called = true;
                             },
                         };
                         
-                        self.link_config.need_config = false;
+                        self.link_config.called = false;
                     }
                 }
 
@@ -184,7 +177,7 @@ impl MyApp {
                     if let Some(icon_path) = self.link_config.icon_path.clone() {
                         self.icon_will_clean.push(icon_path);
                     }
-                    self.link_config.need_config = false;
+                    self.link_config.called = false;
                 }
             })});
         });

@@ -1,4 +1,4 @@
-use eframe::egui::{self, Align, Layout};
+use eframe::egui;
 use std::process::Command;
 use std::collections::HashSet;
 use strsim::jaro_winkler;
@@ -24,6 +24,9 @@ impl MyApp {
                                     vec![]
                                 )
                             );
+                        }
+                        if ui.button("所有快捷方式").clicked() {
+                            println!("{:?}", self.pages);
                         }
                         if ui.button("已缓存的图片").clicked() {
                             println!("{:?}", self.cached_icon);
@@ -130,104 +133,15 @@ impl MyApp {
             // });
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.show_setting_window(ui);
+                self.show_config_save_error(ui);
+                self.show_delete_link(ui);
                 self.show_page(ui);
             });
         });
     }
 
-   
+
     fn show_page(&mut self, ui: &mut egui::Ui) {
-        // 配置文件弹窗
-        if let Some((title, message)) = self.conf_error.clone() {
-            egui::Window::new(title)
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
-            .show(ui.ctx(), |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.label(message);
-                    ui.separator();
-                    
-                    ui.with_layout(Layout {
-                        cross_align: Align::RIGHT,
-                        ..Default::default()
-                    }, |ui| {
-                        ui.horizontal(|ui| {
-                            if ui.button("好的").clicked() {
-                                self.conf_error = None;
-                            };
-                            if ui.button("重试").clicked() {
-                                match self.save_conf() {
-                                    Ok(_) => {
-                                        println!("保存成功");
-                                        self.conf_error = None;
-                                    },
-                                    Err(e) => {
-                                        println!("保存失败: {}", e);
-                                        self.conf_error = Some((
-                                            "无法写入配置文件！".to_string(),
-                                            "你可以尝试删除配置文件并再次保存".to_string()
-                                        ));
-                                    },
-                                };
-                            }
-                        });
-                    });
-                });
-            });
-        }
-
-        // 删除快捷方式弹窗
-        if let Some((page_index, link_index)) = self.link_should_delete {
-            self.link_config.need_config = false;
-
-            egui::Window::new("你确定要删除这个快捷方式吗？")
-            .title_bar(false)
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
-            .show(ui.ctx(), |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.heading("你确定要删除这个快捷方式吗？");
-                    ui.label(format!("“{}”将会永久消失！（真的很久！）", self.pages[page_index].program_links[link_index].name));
-                    ui.separator();
-                    
-                    ui.with_layout(Layout {
-                        cross_align: Align::RIGHT,
-                        ..Default::default()
-                    }, |ui| {
-                        ui.horizontal(|ui| {
-                            if ui.button(egui::RichText::new("确定").color(egui::Color32::RED))
-                            .clicked() {
-                                let program_links = &mut self.pages[page_index].program_links;
-                                self.cached_icon
-                                    .entry(program_links[link_index].icon_path.clone())
-                                    .or_insert_with(HashSet::new)
-                                    .remove(&program_links[link_index].uuid);
-    
-                                self.icon_will_clean.push(program_links[link_index].icon_path.clone());
-                                program_links.remove(link_index);
-                                println!("删除成功: {:?}", program_links);
-                                match self.save_conf() {
-                                    Ok(_) => println!("保存成功"),
-                                    Err(e) => {
-                                        println!("保存失败: {}", e);
-                                        self.conf_error = Some((
-                                            "无法写入配置文件！".to_string(),
-                                            "你可以尝试删除配置文件并再次保存".to_string()
-                                        ));
-                                    },
-                                };
-                                self.link_should_delete = None;
-                            }
-                            if ui.button("取消").clicked() {
-                                self.link_should_delete = None;
-                            }
-                        });
-                    });
-                });
-            });
-        }
 
         // 显示页面
         if let Some(page) = self.pages.get(self.current_page_index) {
@@ -257,7 +171,7 @@ impl MyApp {
                             // })
                             ;
                             
-                            if !self.link_config.need_config {
+                            if !self.link_config.called {
                                 if self.edit_mode && response.clicked() {
                                     // 打开设置窗口
                                     self.link_config.config_existing_link(LinkPosition::new(self.current_page_index, link_index), program);
@@ -302,7 +216,7 @@ impl MyApp {
                                             
                                             println!("删除");
                                             
-                                            self.link_should_delete = Some((self.current_page_index, link_index));
+                                            self.config_save.delete_link(self.current_page_index, link_index);
                                             
                                             ui.close_menu();
                                         }
@@ -336,7 +250,7 @@ impl MyApp {
                                 egui::vec2(96.0, 96.0),
                                 egui::Button::new(egui::RichText::new("➕").size(48.))
                             );
-                            if response.clicked() && !self.link_config.need_config  {
+                            if response.clicked() && !self.link_config.called  {
                                 println!("点击了添加按钮");
 
                                 self.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
@@ -358,7 +272,7 @@ impl MyApp {
                             egui::vec2(96.0, 96.0),
                             egui::Button::new(egui::RichText::new("➕").size(48.))
                         );
-                        if response.clicked() && !self.link_config.need_config  {
+                        if response.clicked() && !self.link_config.called  {
                             println!("点击了添加按钮");
 
                             self.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
@@ -373,7 +287,7 @@ impl MyApp {
                         egui::vec2(96.0, 96.0),
                         egui::Button::new(egui::RichText::new("➕").size(48.))
                     );
-                    if response.clicked() && !self.link_config.need_config  {
+                    if response.clicked() && !self.link_config.called  {
                         println!("点击了添加按钮");
 
                         self.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
