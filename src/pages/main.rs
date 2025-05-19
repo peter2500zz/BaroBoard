@@ -132,9 +132,9 @@ impl MyApp {
             });
             // });
             egui::ScrollArea::vertical().show(ui, |ui| {
+                self.show_delete_link(ui);
                 self.show_setting_window(ui);
                 self.show_config_save_error(ui);
-                self.show_delete_link(ui);
                 self.show_page(ui);
             });
         });
@@ -171,10 +171,10 @@ impl MyApp {
                             // })
                             ;
                             
-                            if !self.link_config.called {
+                            if !self.link_popups.link_config.called {
                                 if self.edit_mode && response.clicked() {
                                     // 打开设置窗口
-                                    self.link_config.config_existing_link(LinkPosition::new(self.current_page_index, link_index), program);
+                                    self.link_popups.link_config.config_existing_link(LinkPosition::new(self.current_page_index, link_index), program);
 
                                 } else {
                                     if response.clicked() {
@@ -207,7 +207,7 @@ impl MyApp {
                                             ui.close_menu();
                                         }
                                         if ui.button("编辑").clicked() {
-                                            self.link_config.config_existing_link(LinkPosition::new(self.current_page_index, link_index), program);
+                                            self.link_popups.link_config.config_existing_link(LinkPosition::new(self.current_page_index, link_index), program);
                                             ui.close_menu();
                                         }
                                         
@@ -216,7 +216,7 @@ impl MyApp {
                                             
                                             println!("删除");
                                             
-                                            self.config_save.delete_link(self.current_page_index, link_index);
+                                            self.link_popups.link_delete.delete_link(self.current_page_index, link_index);
                                             
                                             ui.close_menu();
                                         }
@@ -250,10 +250,10 @@ impl MyApp {
                                 egui::vec2(96.0, 96.0),
                                 egui::Button::new(egui::RichText::new("➕").size(48.))
                             );
-                            if response.clicked() && !self.link_config.called  {
+                            if response.clicked() && !self.link_popups.link_config.called  {
                                 println!("点击了添加按钮");
 
-                                self.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
+                                self.link_popups.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
                             }
             
                         });
@@ -272,10 +272,10 @@ impl MyApp {
                             egui::vec2(96.0, 96.0),
                             egui::Button::new(egui::RichText::new("➕").size(48.))
                         );
-                        if response.clicked() && !self.link_config.called  {
+                        if response.clicked() && !self.link_popups.link_config.called  {
                             println!("点击了添加按钮");
 
-                            self.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
+                            self.link_popups.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
                         }
                     });
                 }
@@ -287,10 +287,10 @@ impl MyApp {
                         egui::vec2(96.0, 96.0),
                         egui::Button::new(egui::RichText::new("➕").size(48.))
                     );
-                    if response.clicked() && !self.link_config.called  {
+                    if response.clicked() && !self.link_popups.link_config.called  {
                         println!("点击了添加按钮");
 
-                        self.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
+                        self.link_popups.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
                     }
                 });
             }

@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
-use crate::pages::popups::{config_link::LinkConfig, config_save::ConfigSave};
+use crate::pages::popups::link::{LinkPopups, save::LinkSave};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProgramLink {
@@ -13,13 +13,24 @@ pub struct ProgramLink {
     pub uuid: String,
 }
 
+impl Default for ProgramLink {
+    fn default() -> Self {
+        Self {
+            name: "".to_string(),
+            icon_path: "".to_string(),
+            run_command: "".to_string(),
+            uuid: Uuid::new_v4().to_string(),
+        }
+    }
+}
+
 impl ProgramLink {
     pub fn new(name: String, icon_path: String, run_command: String) -> Self {
         Self {
             name: name,
             icon_path: icon_path,
             run_command: run_command,
-            uuid: Uuid::new_v4().to_string(),
+            ..Default::default()
         }
     }
 }
@@ -30,10 +41,17 @@ pub struct Page {
     pub title: String,
 }
 
+impl Default for Page {
+    fn default() -> Self {
+        Self {
+            program_links: Vec::new(),
+            title: "新页面".to_string(),
+        }
+    }
+}
 
 impl Page {
     pub fn new(title: String, programms: Vec<ProgramLink>) -> Self {
-
         Self {
             program_links: programms,
             title: title,
@@ -64,8 +82,7 @@ pub struct MyApp {
     pub search_text: String,
     
     // 设置相关
-    pub link_config: LinkConfig,
-    pub config_save: ConfigSave,
+    pub link_popups: LinkPopups,
     
     // 需要清理的图标
     pub icon_will_clean: Vec<String>,
@@ -79,7 +96,7 @@ pub struct MyApp {
 
 impl MyApp {
     pub fn new() -> Self {
-        let pages = match ConfigSave::load_conf(".links.json") {
+        let pages = match LinkSave::load_conf(".links.json") {
             Ok(links_config) => {
                 links_config.pages
             },
@@ -97,10 +114,9 @@ impl MyApp {
             current_page_index: 0,
             title: "Debug: 右键此条目".to_string(),
             search_text: "".to_string(),
-            link_config: LinkConfig::new(),
+            link_popups: LinkPopups::new(),
             cached_icon: HashMap::new(),
             icon_will_clean: Vec::new(),
-            config_save: ConfigSave::new(),
             called: true,
             edit_mode: false,
         }

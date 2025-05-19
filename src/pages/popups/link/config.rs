@@ -65,37 +65,37 @@ impl MyApp {
         
         .fade_in(true)
         .fade_out(true)
-        .open(&mut self.link_config.called.clone())
+        .open(&mut self.link_popups.link_config.called.clone())
 
         .show(ui.ctx(), |ui| {
             
             if ui.add_sized(
                 egui::vec2(96.0, 96.0),
-                egui::ImageButton::new(format!("file://{}", &self.link_config.icon_path.clone().unwrap_or("你还没有添加任何图片！".to_string())))
+                egui::ImageButton::new(format!("file://{}", &self.link_popups.link_config.icon_path.clone().unwrap_or("你还没有添加任何图片！".to_string())))
             ).clicked() {
                 println!("点击了图片");
                 if let Some(path) = rfd::FileDialog::new()
                 .add_filter("图片", &["png", "svg", "gif"])
                 .pick_file() {
                     // 如果之前设置页面有图片，则尝试删除缓存
-                    if let Some(icon_path) = self.link_config.icon_path.clone() {
+                    if let Some(icon_path) = self.link_popups.link_config.icon_path.clone() {
                         self.icon_will_clean.push(icon_path);
                     }
-                    self.link_config.icon_path = Some(path.display().to_string());
+                    self.link_popups.link_config.icon_path = Some(path.display().to_string());
                 }
             }
             
-            ui.label(&self.link_config.icon_path.clone().unwrap_or("↑ 点击添加图片".to_string()));
+            ui.label(&self.link_popups.link_config.icon_path.clone().unwrap_or("↑ 点击添加图片".to_string()));
 
             ui.horizontal(|ui| {
                 ui.label("名称");
-                ui.add(egui::TextEdit::singleline(&mut self.link_config.name).hint_text("e.g. 记事本"));
+                ui.add(egui::TextEdit::singleline(&mut self.link_popups.link_config.name).hint_text("e.g. 记事本"));
                 
             });
 
             ui.horizontal(|ui| {
                 ui.label("命令");
-                ui.add(egui::TextEdit::singleline(&mut self.link_config.run_command).hint_text("e.g. C:\\Windows\\System32\\notepad.exe"));
+                ui.add(egui::TextEdit::singleline(&mut self.link_popups.link_config.run_command).hint_text("e.g. C:\\Windows\\System32\\notepad.exe"));
             });
 
             ui.separator();
@@ -104,46 +104,46 @@ impl MyApp {
                 cross_align: egui::Align::RIGHT,
                 ..Default::default()
             }, |ui| {ui.horizontal(|ui| {
-                if self.link_config.is_new_link {
+                if self.link_popups.link_config.is_new_link {
                     ui.horizontal(|ui| {
-                        if self.link_config.icon_path.is_none() {
+                        if self.link_popups.link_config.icon_path.is_none() {
                             ui.disable();
                         }
 
                         let response = ui.button("创建");
                         let clicked = response.clicked();
-                        if self.link_config.icon_path.is_none() {
+                        if self.link_popups.link_config.icon_path.is_none() {
                             response.on_hover_text_at_pointer("请先添加图片");
                         }
                         
                         if clicked {
                             println!("创建");
                             // 创建不需要清除之前的图片缓存
-                            self.pages[self.link_config.page_to_save].program_links.push(
+                            self.pages[self.link_popups.link_config.page_to_save].program_links.push(
                                 ProgramLink::new(
-                                    self.link_config.name.clone(),
-                                    self.link_config.icon_path.clone().unwrap_or("".to_string()),
-                                    self.link_config.run_command.clone(),
+                                    self.link_popups.link_config.name.clone(),
+                                    self.link_popups.link_config.icon_path.clone().unwrap_or("".to_string()),
+                                    self.link_popups.link_config.run_command.clone(),
                                 )
                             );
                             
-                            match self.config_save.save_conf(self.pages.clone()) {
+                            match self.link_popups.link_save.save_conf(self.pages.clone()) {
                                 Ok(_) => println!("保存成功"),
                                 Err(e) => {
                                     println!("保存失败: {}", e);
-                                    self.config_save.error_called = true;
+                                    self.link_popups.link_save.error_called = true;
                                 },
                             };
 
-                            self.link_config.is_new_link = false;
-                            self.link_config.called = false;
+                            self.link_popups.link_config.is_new_link = false;
+                            self.link_popups.link_config.called = false;
                         }
                     });
                     
                 } else {
                     if ui.button("保存").clicked() {
                         println!("保存");
-                        let current_link = &mut self.pages[self.link_config.page_to_save].program_links[self.link_config.index_of_the_link];
+                        let current_link = &mut self.pages[self.link_popups.link_config.page_to_save].program_links[self.link_popups.link_config.index_of_the_link];
                         // 尝试移除之前的缓存标记
                         if let Some(icon_path) = self.cached_icon.get_mut(&current_link.icon_path) {
                             icon_path.remove(&current_link.uuid);
@@ -155,29 +155,29 @@ impl MyApp {
                         // 如果缓存为空，则删除缓存
                         self.icon_will_clean.push(current_link.icon_path.clone());
 
-                        current_link.name = self.link_config.name.clone();
-                        current_link.icon_path = self.link_config.icon_path.clone().unwrap_or("".to_string());
-                        current_link.run_command = self.link_config.run_command.clone();
+                        current_link.name = self.link_popups.link_config.name.clone();
+                        current_link.icon_path = self.link_popups.link_config.icon_path.clone().unwrap_or("".to_string());
+                        current_link.run_command = self.link_popups.link_config.run_command.clone();
 
-                        match self.config_save.save_conf(self.pages.clone()) {
+                        match self.link_popups.link_save.save_conf(self.pages.clone()) {
                             Ok(_) => println!("保存成功"),
                             Err(e) => {
                                 println!("保存失败: {}", e);
-                                self.config_save.error_called = true;
+                                self.link_popups.link_save.error_called = true;
                             },
                         };
                         
-                        self.link_config.called = false;
+                        self.link_popups.link_config.called = false;
                     }
                 }
 
                 if ui.button("取消").clicked() {
                     println!("取消");
                     // 如果此图片没有被其他程序使用，则删除缓存
-                    if let Some(icon_path) = self.link_config.icon_path.clone() {
+                    if let Some(icon_path) = self.link_popups.link_config.icon_path.clone() {
                         self.icon_will_clean.push(icon_path);
                     }
-                    self.link_config.called = false;
+                    self.link_popups.link_config.called = false;
                 }
             })});
         });
