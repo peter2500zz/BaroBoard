@@ -1,40 +1,84 @@
-mod my_structs;
-mod pages;
+// mod my_structs;
+// mod pages;
+mod app;
+mod event;
+mod window;
 
-use eframe::egui;
 use std::sync::Arc;
+use egui_winit::winit;
 
-use crate::my_structs::*;
+// use crate::my_structs::*;
 
 
 fn main() {
-    let eframe_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([800., 500.])
-            .with_resizable(false)
-            .with_title("BaroBoard 工具箱")
-            ,
-        ..Default::default()
-    };
-    
-    let r = eframe::run_native(
-        "My egui App", // 应用程序的标题
-        eframe_options, // 视口选项
-        Box::new(|cc| {
-            egui_extras::install_image_loaders(&cc.egui_ctx);
-            setup_custom_fonts(&cc.egui_ctx);
-            Ok(Box::new(MyApp::new()))
+    let event_loop = winit::event_loop::EventLoop::<event::UserEvent>::with_user_event()
+        .build()
+        .unwrap();
+    let proxy = event_loop.create_proxy();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let _guard = rt.enter();
+    let proxy_clone = proxy.clone(); // !注意: 为后台任务克隆proxy
+
+    // rt.spawn(async move {
+    //     loop {
+    //         // println!("运行后台任务...");
+    //         // proxy_clone
+    //         //     .send_event(event::UserEvent::HideWindow)
+    //         //     .unwrap();
+    //         // proxy_clone
+    //         //     .send_event(event::UserEvent::Redraw(Duration::ZERO))
+    //         //     .unwrap();
+    //         // tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+    //         // proxy_clone
+    //         //     .send_event(event::UserEvent::ShowWindow)
+    //         //     .unwrap();
+    //         proxy_clone
+    //             .send_event(event::UserEvent::Redraw(Duration::ZERO))
+    //             .unwrap();
+    //         tokio::time::sleep(tokio::time::Duration::from_secs(u64::MAX)).await;
+    //     }
+    // });
+
+    let mut app = app::GlowApp::new(
+        proxy,
+        Box::new(|egui_ctx| {
+            egui::CentralPanel::default().show(egui_ctx, |ui| {
+                ui.heading("Hello World!");
+                ui.label("Hello World!");
+            });
         }),
     );
+    event_loop.run_app(&mut app).expect("failed to run app");
 
-    match r {
-        Ok(_) => {
-            println!("程序结束");
-        }
-        Err(e) => {
-            println!("程序结束，错误: {}", e);
-        }
-    }
+
+    // let eframe_options = eframe::NativeOptions {
+    //     viewport: egui::ViewportBuilder::default()
+    //         .with_inner_size([800., 500.])
+    //         .with_resizable(false)
+    //         .with_title("BaroBoard 工具箱")
+    //         ,
+    //     ..Default::default()
+    // };
+    
+    // let r = eframe::run_native(
+    //     "My egui App", // 应用程序的标题
+    //     eframe_options, // 视口选项
+    //     Box::new(|cc| {
+    //         egui_extras::install_image_loaders(&cc.egui_ctx);
+    //         setup_custom_fonts(&cc.egui_ctx);
+    //         Ok(Box::new(MyApp::new()))
+    //     }),
+    // );
+
+    // match r {
+    //     Ok(_) => {
+    //         println!("程序结束");
+    //     }
+    //     Err(e) => {
+    //         println!("程序结束，错误: {}", e);
+    //     }
+    // }
 }
 
 
