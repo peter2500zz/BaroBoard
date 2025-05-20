@@ -1,4 +1,4 @@
-use eframe::egui;
+use egui;
 use std::process::Command;
 use std::collections::HashSet;
 use strsim::jaro_winkler;

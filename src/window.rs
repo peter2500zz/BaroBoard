@@ -23,8 +23,9 @@ impl GlutinWindowContext {
             .with_resizable(true)
             .with_inner_size(winit::dpi::LogicalSize {
                 width: 800.0,
-                height: 600.0,
+                height: 500.0,
             })
+            .with_resizable(false)
             .with_title("egui_glow example") // 保持隐藏状态直到我们绘制了一些内容。参见 https://github.com/emilk/egui/pull/2279
             .with_visible(false);
 

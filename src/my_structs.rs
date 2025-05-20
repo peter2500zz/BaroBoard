@@ -1,4 +1,4 @@
-use eframe::egui;
+use egui;
 use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
@@ -126,7 +126,7 @@ impl MyApp {
     }
 
 
-    fn clean_unused_icon(&mut self, ui: &mut egui::Ui) {
+    pub fn clean_unused_icon(&mut self, ui: &mut egui::Ui) {
         for icon_path in self.icon_will_clean.iter() {
             if self.cached_icon.get(icon_path).map_or(true, |set| set.is_empty()) {
                 println!("释放图片资源 {}", icon_path);
@@ -141,14 +141,14 @@ impl MyApp {
 }
 
 
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.main_ui(ctx, ui);
-            self.clean_unused_icon(ui);
-        });
-    }
-}
+// impl eframe::App for MyApp {
+//     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+//         egui::CentralPanel::default().show(ctx, |ui| {
+//             self.main_ui(ctx, ui);
+//             self.clean_unused_icon(ui);
+//         });
+//     }
+// }
 
 impl Drop for MyApp {
     fn drop(&mut self) {

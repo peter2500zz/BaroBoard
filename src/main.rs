@@ -1,11 +1,12 @@
-// mod my_structs;
-// mod pages;
+mod my_structs;
+mod pages;
 mod app;
 mod event;
 mod window;
 
 use std::sync::Arc;
 use egui_winit::winit;
+use my_structs::MyApp;
 
 // use crate::my_structs::*;
 
@@ -39,13 +40,15 @@ fn main() {
     //         tokio::time::sleep(tokio::time::Duration::from_secs(u64::MAX)).await;
     //     }
     // });
+    // let mut my_app = MyApp::new();
 
     let mut app = app::GlowApp::new(
         proxy,
         Box::new(|egui_ctx| {
             egui::CentralPanel::default().show(egui_ctx, |ui| {
-                ui.heading("Hello World!");
-                ui.label("Hello World!");
+                ui.label("trying hard...");
+                // my_app.main_ui(egui_ctx, ui);
+                // my_app.clean_unused_icon(ui);
             });
         }),
     );
