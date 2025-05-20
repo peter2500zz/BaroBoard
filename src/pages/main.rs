@@ -8,7 +8,7 @@ use crate::my_structs::*;
 
 
 impl MyApp {
-    pub fn main_ui(&mut self, ui: &mut egui::Ui)  {        
+    pub fn main_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui)  {        
         // 添加面板的顺序非常重要，影响最终的布局
         egui::TopBottomPanel::top("title")
         .resizable(false)
@@ -31,6 +31,11 @@ impl MyApp {
                         }
                         if ui.button("已缓存的图片").clicked() {
                             println!("{:?}", self.cached_icon);
+                        }
+
+                        if ui.button("隐藏").clicked() {
+                            let ctx = ctx.clone();
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
                         }
                     });
                 });
@@ -78,7 +83,12 @@ impl MyApp {
                         if !results.is_empty() {
                             // 更新排序后的程序列表
                             self.sorted_program_links = results.iter().map(|(program, _)| program.clone()).collect();
-                            if ui.ctx().input(|i| i.key_pressed(egui::Key::Enter)) {
+                            // 如果按下回车键，则运行选中的程序
+                            // if search_text.has_focus() {
+                            if ui.ctx().input(|i| i.key_pressed(egui::Key::Enter)) && 
+                                // 这一步的作用是，如果用户使用Tab聚焦到按钮时，不会触发搜索框的lost_focus，避免重复触发
+                                search_text.lost_focus()
+                            {
                                 println!("选中的程序: {} 权重: {}", results[0].0.name, results[0].1);
                                 match Command::new(&results[0].0.run_command).spawn() {
                                     Ok(_) => println!("{} 运行成功", results[0].0.name),
@@ -88,6 +98,7 @@ impl MyApp {
                                 }
                                 self.search_text = "".to_string();
                             }
+                            // }
                             
                         } else {
                             // 如果搜索框里没有内容，则清空排序后的程序列表

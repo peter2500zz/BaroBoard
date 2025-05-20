@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crate::my_structs::*;
 
 
-fn main() -> Result<(), eframe::Error> {
+fn main() {
     let eframe_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([800., 500.])
@@ -17,7 +17,7 @@ fn main() -> Result<(), eframe::Error> {
         ..Default::default()
     };
     
-    eframe::run_native(
+    let r = eframe::run_native(
         "My egui App", // 应用程序的标题
         eframe_options, // 视口选项
         Box::new(|cc| {
@@ -25,8 +25,16 @@ fn main() -> Result<(), eframe::Error> {
             setup_custom_fonts(&cc.egui_ctx);
             Ok(Box::new(MyApp::new()))
         }),
-    )
+    );
 
+    match r {
+        Ok(_) => {
+            println!("程序结束");
+        }
+        Err(e) => {
+            println!("程序结束，错误: {}", e);
+        }
+    }
 }
 
 

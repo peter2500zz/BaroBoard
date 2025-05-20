@@ -1,4 +1,5 @@
 use eframe::egui;
+use std::collections::HashSet;
 
 use crate::my_structs::*;
 
@@ -45,8 +46,10 @@ impl MyApp {
                 ui.label(format!(
                     "“{}”将会永久消失！（真的很久！）", 
                     self
+                    // 这里不能unwarp的原因是
+                    // egui关闭窗口的动画效果会延迟关闭，这段时间内仍然会被使用
                     .pages.get(self.link_popups.link_delete.page_to_delete).cloned().unwrap_or_default()
-                    .program_links.get(self.link_popups.link_delete.index_of_the_link).cloned().unwrap_or_default()
+                    .program_links.get(self.link_popups.link_delete.index_of_the_link).cloned().unwrap_or_default()//(ProgramLink { name: "已删除".to_string(), ..Default::default()})
                     .name
                 ));
                 
@@ -61,7 +64,14 @@ impl MyApp {
                         .clicked() && self.link_popups.link_delete.delete_called {
                             let program_links = &mut self.pages[self.link_popups.link_delete.page_to_delete].program_links;
 
+                            if let Some(icon_path) = self.cached_icon.get_mut(&program_links[self.link_popups.link_delete.index_of_the_link].icon_path) {
+                                icon_path.remove(&program_links[self.link_popups.link_delete.index_of_the_link].uuid);
+                            } else {
+                                // 如果不行则强制清空
+                                self.cached_icon.insert(program_links[self.link_popups.link_delete.index_of_the_link].icon_path.clone(), HashSet::new());
+                            }
                             self.icon_will_clean.push(program_links[self.link_popups.link_delete.index_of_the_link].icon_path.clone());
+
                             program_links.remove(self.link_popups.link_delete.index_of_the_link);
                             println!("删除成功: {:?}", program_links);
                             match self.link_popups.link_save.save_conf(self.pages.clone()) {

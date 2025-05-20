@@ -7,6 +7,7 @@ use crate::my_structs::*;
 
 pub struct LinkConfig {
     pub called: bool,
+    should_close: bool,
     is_new_link: bool,
     
     page_to_save: usize,
@@ -22,6 +23,7 @@ impl LinkConfig {
     pub fn new() -> Self {
         Self {
             called: false,
+            should_close: false,
             is_new_link: false,
             page_to_save: 0,
             index_of_the_link: 0,
@@ -59,6 +61,11 @@ impl LinkConfig {
 
 impl MyApp {
     pub  fn show_setting_window(&mut self, ui: &mut egui::Ui) {
+        if self.link_popups.link_config.should_close {
+            self.link_popups.link_config.called = false;
+            self.link_popups.link_config.should_close = false;
+        }
+
         // 设置页面
         egui::Window::new("配置快捷方式")
         .collapsible(false)
@@ -67,7 +74,7 @@ impl MyApp {
         
         .fade_in(true)
         .fade_out(true)
-        .open(&mut self.link_popups.link_config.called.clone())
+        .open(&mut self.link_popups.link_config.called)
 
         .show(ui.ctx(), |ui| {
             
@@ -137,7 +144,7 @@ impl MyApp {
                             };
 
                             self.link_popups.link_config.is_new_link = false;
-                            self.link_popups.link_config.called = false;
+                            self.link_popups.link_config.should_close = true;
                         }
                     });
                     
@@ -167,7 +174,7 @@ impl MyApp {
                             },
                         };
                         
-                        self.link_popups.link_config.called = false;
+                        self.link_popups.link_config.should_close = true;
                     }
                 }
 
@@ -176,7 +183,7 @@ impl MyApp {
                     if let Some(icon_path) = self.link_popups.link_config.icon_path.clone() {
                         self.icon_will_clean.push(icon_path);
                     }
-                    self.link_popups.link_config.called = false;
+                    self.link_popups.link_config.should_close = true;
                 }
             })});
         });
