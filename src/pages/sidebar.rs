@@ -1,4 +1,4 @@
-use eframe::egui;
+use egui;
 
 use crate::my_structs::*;
 

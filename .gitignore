@@ -2,4 +2,4 @@
 /src/assets
 /.idea
 /baks
-*.png
+.links.json
