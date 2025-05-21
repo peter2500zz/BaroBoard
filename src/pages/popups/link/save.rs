@@ -66,7 +66,7 @@ impl MyApp {
         .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
         .fade_in(true)
         .fade_out(true)
-        .open(&mut self.called)
+        .open(&mut self.link_popups.link_save.error_called.clone())
 
         .show(ui.ctx(), |ui| {
             ui.vertical_centered(|ui| {

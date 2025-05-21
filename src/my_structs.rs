@@ -2,6 +2,7 @@ use egui;
 use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
+use std::sync::{Arc, Mutex};
 
 use crate::pages::popups::link::{LinkPopups, save::LinkSave};
 use crate::window;
@@ -94,11 +95,11 @@ pub struct MyApp {
     // 编辑模式
     pub edit_mode: bool,
     // 被唤起
-    pub called: bool,
+    pub called: Arc<Mutex<bool>>,
 }
 
 impl MyApp {
-    pub fn new() -> Self {
+    pub fn new(called: Arc<Mutex<bool>>) -> Self {
         let pages = match LinkSave::load_conf(".links.json") {
             Ok(links_config) => {
                 links_config.pages
@@ -121,17 +122,18 @@ impl MyApp {
             link_popups: LinkPopups::new(),
             cached_icon: HashMap::new(),
             icon_will_clean: Vec::new(),
-            called: true,
+            called: called,
             edit_mode: false,
         }
     }
 
 
-    pub fn clean_unused_icon(&mut self, ui: &mut egui::Ui) {
+    pub fn clean_unused_icon(&mut self, ctx: &egui::Context) {
         for icon_path in self.icon_will_clean.iter() {
             if self.cached_icon.get(icon_path).map_or(true, |set| set.is_empty()) {
                 println!("释放图片资源 {}", icon_path);
-                ui.ctx().forget_image(&format!("file://{}", icon_path));
+                ctx.forget_image(&format!("file://{}", icon_path));
+                // ctx.forget_all_images();
                 self.cached_icon.remove(icon_path);
             } else {
                 println!("图片仍在被使用，将不会释放 {}", icon_path);
@@ -143,9 +145,16 @@ impl MyApp {
 
 impl window::App for MyApp {
     fn update(&mut self, ctx: &egui::Context) {
+        // if ctx.input(|i| i.focused) {
+        //     let mut called = self.called.lock().unwrap();
+        //     if !*called {
+        //         *called = true;
+        //     }
+        // }
+
         egui::CentralPanel::default().show(ctx, |ui| {
             self.main_ui(ctx, ui);
-            self.clean_unused_icon(ui);
+            self.clean_unused_icon(ctx);
         });
     }
 }

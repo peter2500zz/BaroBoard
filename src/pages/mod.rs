@@ -45,11 +45,11 @@ impl MyApp {
                 ui.vertical_centered(|ui: &mut egui::Ui| {
                     // 搜索框占据中间位置
                     let search_text = ui.add(egui::TextEdit::singleline(&mut self.search_text).hint_text("搜索"));
-                    
                     // 如果程序被唤起，则请求焦点
-                    if self.called {
+                    let mut called_guard = self.called.lock().unwrap();
+                    if *called_guard {
                         search_text.request_focus();
-                        self.called = false;
+                        *called_guard = false;
                     }
 
                     // 如果搜索框里有内容，则进行搜索
@@ -87,7 +87,7 @@ impl MyApp {
                             self.sorted_program_links = results.iter().map(|(program, _)| program.clone()).collect();
                             // 如果按下回车键，则运行选中的程序
                             // if search_text.has_focus() {
-                            if ui.ctx().input(|i| i.key_pressed(egui::Key::Enter)) && 
+                            if ctx.input(|i| i.key_pressed(egui::Key::Enter)) && 
                                 // 这一步的作用是，如果用户使用Tab聚焦到按钮时，不会触发搜索框的lost_focus，避免重复触发
                                 search_text.lost_focus()
                             {
@@ -99,6 +99,8 @@ impl MyApp {
                                     },
                                 }
                                 self.search_text = "".to_string();
+                                println!("关闭窗口");
+                                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
                             }
                             // }
                             
@@ -299,5 +301,6 @@ impl MyApp {
                 });
             }
         }
+        // ctx.texture_ui(ui);
     }
 }

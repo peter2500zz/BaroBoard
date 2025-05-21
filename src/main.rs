@@ -2,77 +2,93 @@ mod my_structs;
 mod pages;
 mod window;
 
-use std::sync::Arc;  // Arc = 原子引用计数(Atomically Reference Counted)，一种线程安全的智能指针，允许在多个线程间共享所有权
-use window::{event, glow_app};
+use std::sync::{Arc, Mutex};  // Arc = 原子引用计数(Atomically Reference Counted)，一种线程安全的智能指针，允许在多个线程间共享所有权
 use egui_winit::winit;
-use my_structs::MyApp;
+use rdev::{listen, EventType, Key};
+use std::time::{Duration, Instant};
 
-// use crate::my_structs::*;
+use window::{event, glow_app};
+use my_structs::MyApp;
 
 
 fn main() {
-    // --- 事件循环设置 ---
-    // 创建事件循环，支持自定义事件类型UserEvent
-    // 事件循环是GUI应用程序的核心，负责处理用户输入、窗口事件和自定义事件
-    // 使用with_user_event()允许应用程序创建和处理自定义事件类型
+    // 创建事件循环
     let event_loop = winit::event_loop::EventLoop::<event::UserEvent>::with_user_event()
         .build()
         .unwrap();
-    // 创建事件代理，允许从其他线程发送事件到主事件循环
-    // 这是线程间通信的关键机制，因为UI操作必须在主线程上进行
+    
     let proxy = event_loop.create_proxy();
 
-    // --- 异步运行时设置 ---
     // 创建Tokio异步运行时
-    // Tokio是Rust的异步运行时，允许使用async/await编写高效的非阻塞并发代码
-    // 它提供了任务调度器、事件循环和其他基础设施来处理异步任务
     let rt = tokio::runtime::Runtime::new().unwrap();
+
+    // AIGC 添加
     // 进入运行时上下文，允许在当前线程使用tokio的异步功能
     // _guard是一个RAII守卫，当它被丢弃时会清理运行时上下文
     let _guard = rt.enter();
     
-    // --- 后台任务准备 ---
-    // 为后台任务创建事件代理的克隆
-    // Clone是必要的，因为每个线程需要自己的代理实例来发送事件
-    // 所有克隆的代理都指向同一个事件循环
+    // 后台任务
     let proxy_clone = proxy.clone();
 
-    // --- 后台任务示例(当前已注释) ---
-    // 以下是一个被注释掉的后台任务，展示了如何使用tokio的异步功能来执行后台工作
+    let called = Arc::new(Mutex::new(true));
+    let called_clone = called.clone();
+
+    
+
     rt.spawn(async move {
-        // // 为后台任务创建MyApp的克隆
-        // let my_app_clone = my_app.clone();
-        
         // loop {
-        //     // // 模拟状态变化，例如每5秒改变UI显示状态
-        //     // {
-        //     //     // 获取互斥锁，修改应用状态
-        //     //     // 花括号创建了一个作用域，确保lock()返回的MutexGuard在使用后立即被释放
-        //     //     // 这样可以最小化锁的持有时间，防止其他线程等待过长时间
-        //     //     let mut app = my_app_clone.lock().unwrap();
-        //     //     app.called = !app.called; // 切换状态
-        //     //     println!("状态已更改: called = {}", app.called);
-        //     // } // <- MutexGuard在这里被释放，解锁Mutex
-            
-        //     // 通过代理发送重绘事件到主线程的事件循环
-        //     // 这是线程间通信的关键机制：后台线程不能直接操作UI，但可以发送事件请求UI更新
-        //     proxy_clone
-        //         .send_event(event::UserEvent::HideWindow)
-        //         .unwrap();
-        //     proxy_clone
-        //         .send_event(event::UserEvent::Redraw(Duration::ZERO))
-        //         .unwrap();
-                
-        //     // 异步等待5秒钟，不会阻塞线程或其他任务
-        //     // 这利用了tokio的异步特性，使当前任务"让出"执行权，直到指定时间后才恢复
-        //     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-        //     proxy_clone
-        //         .send_event(event::UserEvent::ShowWindow)
-        //         .unwrap();
-        //     proxy_clone
-        //         .send_event(event::UserEvent::Redraw(Duration::ZERO))
-        //         .unwrap();
-        //     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+            let proxy_clone_loop = proxy_clone.clone();
+            let called_clone_loop = called_clone.clone();
+            // 添加变量来跟踪Alt键状态
+            let mut last_alt_release = None::<Instant>;
+            // 添加冷却期变量
+            let mut cooldown_until = None::<Instant>;
+
+            listen(move |event| {
+                match event.event_type {
+                    EventType::KeyPress(key) => {
+                        if let Key::Alt = key {
+                            // 检查是否在上次Alt释放后的1.5秒内
+                            let mut should_show = false;
+                            {
+                                let last_release = last_alt_release;
+                                if let Some(time) = last_release {
+                                    let elapsed = time.elapsed();
+                                    if elapsed <= Duration::from_millis(1500) {
+                                        should_show = true;
+                                    }
+                                }
+                            }
+                            
+                            if should_show {
+                                println!("Double Alt Detected at {:?}", Instant::now());
+                                *called_clone_loop.lock().unwrap() = true;
+                                proxy_clone_loop
+                                    .send_event(event::UserEvent::ShowWindow)
+                                    .unwrap();
+                                // 设置冷却期，1.5秒内忽略Alt释放
+                                cooldown_until = Some(Instant::now() + Duration::from_millis(1500));
+                            }
+                        }
+                    },
+                    EventType::KeyRelease(key) => {
+                        if let Key::Alt = key {
+                            // 检查是否在冷却期内
+                            let now = Instant::now();
+                            if let Some(cooldown_time) = cooldown_until {
+                                if now < cooldown_time {
+                                    // 在冷却期内，忽略这次释放
+                                    return;
+                                }
+                            }
+                            // 不在冷却期内，记录Alt键释放的时间
+                            last_alt_release = Some(now);
+                        }
+                    },
+                    _ => (),
+                }
+            }).unwrap()
+            ;
         // }
     });
 
@@ -97,7 +113,7 @@ fn main() {
             // 设置自定义字体，支持中文显示
             setup_custom_fonts(egui_ctx);
 
-            Box::new(MyApp::new())
+            Box::new(MyApp::new(called.clone()))
         }),
     );
 

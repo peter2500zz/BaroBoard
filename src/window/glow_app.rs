@@ -98,7 +98,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
         event: winit::event::WindowEvent,
     ) {
         let mut redraw = || {
-            let mut quit = false;
+            let quit = false;
 
             let gl_window = self.gl_window.as_mut().unwrap();
 
@@ -187,6 +187,10 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
             return;
         }
 
+        // if let WindowEvent::KeyboardInput { device_id, event, is_synthetic } = &event {
+        //     println!("键盘输入: {:?}", event);
+        // }
+
         if let winit::event::WindowEvent::Resized(physical_size) = &event {
             self.gl_window.as_mut().unwrap().resize(*physical_size);
         }
@@ -212,6 +216,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 if let Some(ref gl_window) = self.gl_window {
                     gl_window.window().set_visible(true);
                     gl_window.window().request_redraw();
+                    gl_window.window().focus_window();
                 }
             }
             UserEvent::HideWindow => {
