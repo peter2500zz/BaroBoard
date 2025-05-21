@@ -44,7 +44,7 @@ impl LinkSave {
 
     pub fn save_conf_to_path(&self, pages: Vec<Page>, path: &str) -> Result<(), std::io::Error> {
         let links_config = LinkConfigSchema {
-            version: "1.0".to_string(),
+            version: "0.1.1".to_string(),
             pages: pages,
         };
 

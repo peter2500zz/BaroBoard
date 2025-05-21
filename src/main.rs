@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // 在Windows的发布版本中隐藏控制台窗口
+
 mod my_structs;
 mod pages;
 mod window;
@@ -6,12 +8,24 @@ use std::sync::{Arc, Mutex};  // Arc = 原子引用计数(Atomically Reference C
 use egui_winit::winit;
 use rdev::{listen, EventType, Key};
 use std::time::{Duration, Instant};
+use tray_item::{TrayItem, IconSource};
+use single_instance::SingleInstance;
 
 use window::{event, glow_app};
 use my_structs::MyApp;
 
 
 fn main() {
+    let instance = SingleInstance::new("BaroBoard").unwrap();
+
+    if !instance.is_single() {
+        println!("BaroBoard 已经在运行");
+        return;
+    }
+
+    let mut tray = TrayItem::new("Tray Example", IconSource::RawIcon(4545)).unwrap();
+    
+
     // 创建事件循环
     let event_loop = winit::event_loop::EventLoop::<event::UserEvent>::with_user_event()
         .build()
@@ -69,6 +83,9 @@ fn main() {
                                 // 设置冷却期，1.5秒内忽略Alt释放
                                 cooldown_until = Some(Instant::now() + Duration::from_millis(1500));
                             }
+                        } else {
+                            // println!("其他键释放");
+                            last_alt_release = None;
                         }
                     },
                     EventType::KeyRelease(key) => {
@@ -83,6 +100,9 @@ fn main() {
                             }
                             // 不在冷却期内，记录Alt键释放的时间
                             last_alt_release = Some(now);
+                        } else {
+                            // println!("其他键释放");
+                            last_alt_release = None;
                         }
                     },
                     _ => (),
@@ -102,6 +122,20 @@ fn main() {
         .with_title("BaroBoard 工具箱") // 参见 https://github.com/emilk/egui/pull/2279
         // .with_visible(false)
         ;
+
+    let proxy_clone_tray = proxy.clone();
+    let called_clone_tray = called.clone();
+
+    tray.add_menu_item("显示工具箱", move || {
+        *called_clone_tray.lock().unwrap() = true;
+        proxy_clone_tray
+            .send_event(event::UserEvent::ShowWindow)
+            .unwrap();
+    }).unwrap();
+
+    tray.add_menu_item("退出", || {
+        std::process::exit(0);
+    }).unwrap();
 
     // 创建主应用程序
     let mut app = glow_app::GlowApp::new(

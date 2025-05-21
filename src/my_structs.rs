@@ -107,7 +107,7 @@ impl MyApp {
             Err(e) => {
                 println!("{}", e);
                 vec![Page::new(
-                    "示例页面".to_string(), 
+                    "页面".to_string(), 
                     Vec::new()
                 )]
             },
@@ -116,7 +116,7 @@ impl MyApp {
         Self {
             pages,
             current_page_index: 0,
-            title: "Debug: 右键此条目".to_string(),
+            title: "BaroBoard 工具箱".to_string(),
             search_text: "".to_string(),
             sorted_program_links: Vec::new(),
             link_popups: LinkPopups::new(),

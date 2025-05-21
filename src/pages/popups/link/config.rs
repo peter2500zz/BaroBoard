@@ -67,7 +67,11 @@ impl MyApp {
         }
 
         // 设置页面
-        egui::Window::new("配置快捷方式")
+        egui::Window::new(if self.link_popups.link_config.is_new_link {
+            "创建快捷方式"
+        } else {
+            "配置快捷方式"
+        })
         .collapsible(false)
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
@@ -84,7 +88,7 @@ impl MyApp {
             ).clicked() {
                 
                 if let Some(path) = rfd::FileDialog::new()
-                .add_filter("图片", &["png", "svg", "gif"])
+                .add_filter("图片", &["png", "svg"])  //, "gif"])
                 .pick_file() {
                     // 如果之前设置页面有图片，则尝试删除缓存
                     if let Some(icon_path) = self.link_popups.link_config.icon_path.clone() {
@@ -94,7 +98,7 @@ impl MyApp {
                 }
             }
             
-            ui.label(&self.link_popups.link_config.icon_path.clone().unwrap_or("↑ 点击添加图片".to_string()));
+            ui.label(&self.link_popups.link_config.icon_path.clone().unwrap_or("↑ 你至少需要一张图片！".to_string()));
 
             ui.horizontal(|ui| {
                 ui.label("名称");
@@ -104,8 +108,27 @@ impl MyApp {
 
             ui.horizontal(|ui| {
                 ui.label("命令");
-                ui.add(egui::TextEdit::singleline(&mut self.link_popups.link_config.run_command).hint_text("e.g. C:\\Windows\\System32\\notepad.exe"));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.link_popups.link_config.run_command).hint_text("e.g. C:\\Windows\\System32\\notepad.exe")
+                )
+                .context_menu(|ui| {
+                    if ui.button("选择一个程序").clicked() {
+                        if let Some(path) = rfd::FileDialog::new()
+                            .add_filter("任意文件", &["*"])
+                            .pick_file() {
+                                // 如果之前设置页面有图片，则尝试删除缓存
+                                self.link_popups.link_config.run_command = path.display().to_string();
+                            }
+                        ui.close_menu();
+                    }
+                })
+                ;
             });
+            
+            ui.label(
+                egui::RichText::new("tip: 右键命令输入框可以打开路径选择器")
+                    .weak()
+            );
 
             ui.separator();
             // 保存与取消按钮

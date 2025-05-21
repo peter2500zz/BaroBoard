@@ -119,7 +119,7 @@ impl MyApp {
         // .width_range(80.0..=200.0)
         .show_inside(ui, |ui| {
             ui.vertical_centered(|ui| {
-                ui.heading("左导航栏");
+                ui.heading("分类");
             });
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.side_bar(ui);
@@ -158,6 +158,16 @@ impl MyApp {
             })
             // 每次选取6个程序，并显示在同一行
             .chunks(6).collect();
+
+            if chunks.is_empty() && !self.edit_mode {
+                ui.centered_and_justified(|ui| {
+                    ui.label(
+                        egui::RichText::new("这个页面中还没有任何快捷方式，你可以在编辑模式中创建一个")
+                            .weak()
+                            .size(16.)
+                    );
+                });
+            }
 
             // 新建链接的按钮
             let mut show_on_next_line = true;
