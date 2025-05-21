@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 use crate::pages::popups::link::{LinkPopups, save::LinkSave};
+use crate::window;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProgramLink {
@@ -140,15 +141,14 @@ impl MyApp {
     }
 }
 
-
-// impl eframe::App for MyApp {
-//     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-//         egui::CentralPanel::default().show(ctx, |ui| {
-//             self.main_ui(ctx, ui);
-//             self.clean_unused_icon(ui);
-//         });
-//     }
-// }
+impl window::App for MyApp {
+    fn update(&mut self, ctx: &egui::Context) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            self.main_ui(ctx, ui);
+            self.clean_unused_icon(ui);
+        });
+    }
+}
 
 impl Drop for MyApp {
     fn drop(&mut self) {

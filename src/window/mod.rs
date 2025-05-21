@@ -1,5 +1,14 @@
+pub mod event;
+pub mod glow_app;
+
 use std::num::NonZeroU32;
 use winit::raw_window_handle::HasWindowHandle;
+
+
+pub trait App {
+    fn update(&mut self, ctx: &egui::Context);
+}
+
 
 pub struct GlutinWindowContext {
     window: winit::window::Window,
@@ -13,21 +22,15 @@ impl GlutinWindowContext {
     // preferably add android support at the same time.
     // 最终重构此函数以使用`glutin-winit`包。
     // 同时最好添加Android支持。
-    #[allow(unsafe_code)]
-    pub unsafe fn new(event_loop: &winit::event_loop::ActiveEventLoop) -> Self {
+    // #[allow(unsafe_code)]
+    pub fn new(
+            event_loop: &winit::event_loop::ActiveEventLoop,
+            winit_window_builder: winit::window::WindowAttributes,
+        ) -> Self {
         use glutin::context::NotCurrentGlContext;
         use glutin::display::GetGlDisplay;
         use glutin::display::GlDisplay;
         use glutin::prelude::GlSurface;
-        let winit_window_builder = winit::window::WindowAttributes::default()
-            .with_resizable(true)
-            .with_inner_size(winit::dpi::LogicalSize {
-                width: 800.0,
-                height: 500.0,
-            })
-            .with_resizable(false)
-            .with_title("egui_glow example") // 保持隐藏状态直到我们绘制了一些内容。参见 https://github.com/emilk/egui/pull/2279
-            .with_visible(false);
 
         let config_template_builder = glutin::config::ConfigTemplateBuilder::new()
             .prefer_hardware_accelerated(None)
