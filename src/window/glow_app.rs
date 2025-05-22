@@ -68,7 +68,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
 
         let (gl_window, gl) = self.create_display(event_loop);
         let gl = std::sync::Arc::new(gl);
-        gl_window.window().set_visible(true);
+        // gl_window.window().set_visible(true);
 
         let egui_glow = egui_glow::EguiGlow::new(event_loop, gl.clone(), None, None, true);
 
@@ -220,6 +220,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 }
             }
             UserEvent::HideWindow => {
+                println!("窗体关闭");
                 self.window_hidden = true;
                 if let Some(ref gl_window) = self.gl_window {
                     gl_window.window().set_visible(false);

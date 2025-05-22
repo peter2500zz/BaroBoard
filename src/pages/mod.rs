@@ -36,8 +36,7 @@ impl MyApp {
                         }
 
                         if ui.button("隐藏").clicked() {
-                            let ctx = ctx.clone();
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+                            self.hide_window();
                         }
                     });
                 });
@@ -48,6 +47,7 @@ impl MyApp {
                     // 如果程序被唤起，则请求焦点
                     let mut called_guard = self.called.lock().unwrap();
                     if *called_guard {
+                        self.search_text = "".to_string();
                         search_text.request_focus();
                         *called_guard = false;
                     }
@@ -99,8 +99,8 @@ impl MyApp {
                                     },
                                 }
                                 self.search_text = "".to_string();
-                                println!("关闭窗口");
-                                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+
+                                self.hide_window();
                             }
                             // }
                             

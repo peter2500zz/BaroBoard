@@ -5,7 +5,7 @@ use uuid::Uuid;
 use std::sync::{Arc, Mutex};
 
 use crate::pages::popups::link::{LinkPopups, save::LinkSave};
-use crate::window;
+use crate::window::{self, event::UserEvent};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProgramLink {
@@ -79,6 +79,8 @@ impl LinkPosition {
 
 
 pub struct MyApp {
+    pub proxy: winit::event_loop::EventLoopProxy<UserEvent>,
+
     pub pages: Vec<Page>,
     pub current_page_index: usize,
     pub title: String,
@@ -99,7 +101,10 @@ pub struct MyApp {
 }
 
 impl MyApp {
-    pub fn new(called: Arc<Mutex<bool>>) -> Self {
+    pub fn new(
+        called: Arc<Mutex<bool>>,
+        proxy: winit::event_loop::EventLoopProxy<UserEvent>
+    ) -> Self {
         let pages = match LinkSave::load_conf(".links.json") {
             Ok(links_config) => {
                 links_config.pages
@@ -114,6 +119,8 @@ impl MyApp {
         };
 
         Self {
+            proxy: proxy,
+
             pages,
             current_page_index: 0,
             title: "BaroBoard 工具箱".to_string(),
@@ -141,16 +148,25 @@ impl MyApp {
         }
         self.icon_will_clean.clear();
     }
+
+    // pub fn show_window(&self) {
+    //     self.proxy
+    //         .send_event(UserEvent::ShowWindow)
+    //         .unwrap();
+    // }
+
+    pub fn hide_window(&self) {
+        self.proxy
+            .send_event(UserEvent::HideWindow)
+            .unwrap();
+    }
 }
 
 impl window::App for MyApp {
     fn update(&mut self, ctx: &egui::Context) {
-        // if ctx.input(|i| i.focused) {
-        //     let mut called = self.called.lock().unwrap();
-        //     if !*called {
-        //         *called = true;
-        //     }
-        // }
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            self.hide_window();
+        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             self.main_ui(ctx, ui);

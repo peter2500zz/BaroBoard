@@ -15,6 +15,8 @@ use window::{event, glow_app};
 use my_structs::MyApp;
 
 
+const DOUBLE_ALT_COOLDOWN: u64 = 500;
+
 fn main() {
     let instance = SingleInstance::new("BaroBoard").unwrap();
 
@@ -62,26 +64,27 @@ fn main() {
                 match event.event_type {
                     EventType::KeyPress(key) => {
                         if let Key::Alt = key {
-                            // 检查是否在上次Alt释放后的1.5秒内
+                            // 检查是否在上次Alt释放后的限定秒内
                             let mut should_show = false;
                             {
                                 let last_release = last_alt_release;
                                 if let Some(time) = last_release {
                                     let elapsed = time.elapsed();
-                                    if elapsed <= Duration::from_millis(1500) {
+                                    if elapsed <= Duration::from_millis(DOUBLE_ALT_COOLDOWN) {
+                                        println!("Double Alt Detected, delay {:?}", elapsed);
                                         should_show = true;
                                     }
                                 }
                             }
                             
+                            // 如果应该显示，则发送事件
                             if should_show {
-                                println!("Double Alt Detected at {:?}", Instant::now());
                                 *called_clone_loop.lock().unwrap() = true;
                                 proxy_clone_loop
                                     .send_event(event::UserEvent::ShowWindow)
                                     .unwrap();
-                                // 设置冷却期，1.5秒内忽略Alt释放
-                                cooldown_until = Some(Instant::now() + Duration::from_millis(1500));
+                                // 设置冷却期，限定秒内忽略Alt释放
+                                cooldown_until = Some(Instant::now() + Duration::from_millis(DOUBLE_ALT_COOLDOWN));
                             }
                         } else {
                             // println!("其他键释放");
@@ -115,6 +118,7 @@ fn main() {
 
     let winit_window_builder = winit::window::WindowAttributes::default()
         .with_resizable(false)
+        // .with_visible(false)
         .with_inner_size(winit::dpi::LogicalSize {
             width: 800.0,
             height: 500.0,
@@ -138,6 +142,7 @@ fn main() {
     }).unwrap();
 
     // 创建主应用程序
+    let proxy_clone_app = proxy.clone();
     let mut app = glow_app::GlowApp::new(
         winit_window_builder,
         proxy,
@@ -147,7 +152,10 @@ fn main() {
             // 设置自定义字体，支持中文显示
             setup_custom_fonts(egui_ctx);
 
-            Box::new(MyApp::new(called.clone()))
+            Box::new(MyApp::new(
+                called.clone(),
+                proxy_clone_app.clone()
+            ))
         }),
     );
 
