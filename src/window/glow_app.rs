@@ -76,7 +76,6 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
 
         self.update_ui = Some(self.set_up.as_mut()(&egui_glow.egui_ctx));
 
-
         let event_loop_proxy = egui::mutex::Mutex::new(self.proxy.clone());
         egui_glow
             .egui_ctx

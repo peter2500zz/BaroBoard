@@ -3,7 +3,6 @@ use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use std::sync::{Arc, Mutex};
-
 use crate::pages::popups::link::{LinkPopups, save::LinkSave};
 use crate::window::{self, event::UserEvent};
 
@@ -78,6 +77,7 @@ impl LinkPosition {
 }
 
 
+pub const DOUBLE_ALT_COOLDOWN: u64 = 500;
 pub struct MyApp {
     pub proxy: winit::event_loop::EventLoopProxy<UserEvent>,
 

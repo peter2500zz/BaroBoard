@@ -46,7 +46,10 @@ impl MyApp {
                     let search_text = ui.add(egui::TextEdit::singleline(&mut self.search_text).hint_text("搜索"));
                     // 如果程序被唤起，则请求焦点
                     let mut called_guard = self.called.lock().unwrap();
-                    if *called_guard {
+                    if *called_guard {  // 被呼叫了！
+                        ctx.send_viewport_cmd(egui::viewport::ViewportCommand::Minimized(false));
+                        ctx.send_viewport_cmd(egui::viewport::ViewportCommand::Focus);
+                        // self.edit_mode = false;
                         self.search_text = "".to_string();
                         search_text.request_focus();
                         *called_guard = false;
@@ -162,7 +165,12 @@ impl MyApp {
             if chunks.is_empty() && !self.edit_mode {
                 ui.centered_and_justified(|ui| {
                     ui.label(
-                        egui::RichText::new("这个页面中还没有任何快捷方式，你可以在编辑模式中创建一个")
+                        egui::RichText::new(
+                            if self.search_text.is_empty() {"
+                                这个页面中还没有任何快捷方式，你可以在编辑模式中创建一个"
+                            } else {
+                                "没有找到任何快捷方式"
+                            })
                             .weak()
                             .size(16.)
                     );
@@ -184,10 +192,20 @@ impl MyApp {
                                 .or_insert_with(HashSet::new)
                                 .insert(program.uuid.clone());
                             
-                            let response = ui.add_sized(
-                                egui::vec2(96.0, 96.0),
-                                egui::ImageButton::new(format!("file://{}", &program.icon_path))
-                            );
+                            let btn = Box::new(|ui: &mut egui::Ui| {
+                                ui.add_sized(
+                                    egui::vec2(96.0, 96.0),
+                                    egui::ImageButton::new(format!("file://{}", &program.icon_path))
+                                )
+                            });
+
+                            let response = if self.edit_mode {
+                                ui.dnd_drag_source(egui::Id::new(&program.uuid), (), |ui| {
+                                    btn(ui)
+                                }).response
+                            } else {
+                                btn(ui)
+                            };
                             
                             if !self.link_popups.link_config.called {
                                 if self.edit_mode && response.clicked() {

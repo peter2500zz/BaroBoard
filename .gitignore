@@ -1,5 +1,6 @@
 /target
-/src/assets
+/assets
 /.idea
 /baks
 .links.json
+drag_and_drop.rs
