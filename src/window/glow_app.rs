@@ -98,6 +98,13 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
         event: winit::event::WindowEvent,
     ) {
         let mut redraw = || {
+            // 如果窗口隐藏，不执行任何渲染操作
+            if self.window_hidden {
+                // 窗口隐藏时，设置长等待时间，避免频繁唤醒
+                event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+                return;
+            }
+
             let quit = false;
 
             let gl_window = self.gl_window.as_mut().unwrap();
@@ -151,18 +158,8 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 // draw things on top of egui here
                 // 在egui上面绘制内容
 
-                // Only make the window visible at the end of rendering if it's not supposed to be hidden
-                // 只有在不应该隐藏窗口的情况下，才在渲染结束时使窗口可见
-                if !self.window_hidden {
-                    self.gl_window.as_mut().unwrap().swap_buffers().unwrap();
-                } else {
-                    // Even when hidden, we still need to swap buffers
-                    // 即使隐藏，我们仍需要交换缓冲区
-                    self.gl_window.as_mut().unwrap().swap_buffers().unwrap();
-                    // But we ensure the window stays hidden
-                    // 但是我们确保窗口保持隐藏状态
-                    self.gl_window.as_mut().unwrap().window().set_visible(false);
-                }
+                // 渲染并交换缓冲区
+                self.gl_window.as_mut().unwrap().swap_buffers().unwrap();
             }
         };
 
@@ -183,7 +180,10 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
         }
 
         if matches!(event, WindowEvent::RedrawRequested) {
-            redraw();
+            // 只有在窗口可见时才执行重绘
+            if !self.window_hidden {
+                redraw();
+            }
             return;
         }
 
@@ -201,16 +201,22 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
             .unwrap()
             .on_window_event(self.gl_window.as_mut().unwrap().window(), &event);
 
-        if event_response.repaint {
+        if event_response.repaint && !self.window_hidden {
             self.gl_window.as_mut().unwrap().window().request_redraw();
         }
     }
 
     // !NOTICE: user event handler
     // !注意: 用户事件处理器
-    fn user_event(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop, event: UserEvent) {
+    fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: UserEvent) {
         match event {
-            UserEvent::Redraw(delay) => self.repaint_delay = delay,
+            UserEvent::Redraw(delay) => {
+                self.repaint_delay = delay;
+                // 如果窗口隐藏状态，不需要频繁重绘
+                if self.window_hidden {
+                    event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+                }
+            },
             UserEvent::ShowWindow => {
                 self.window_hidden = false;
                 if let Some(ref gl_window) = self.gl_window {
@@ -225,6 +231,8 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 if let Some(ref gl_window) = self.gl_window {
                     gl_window.window().set_visible(false);
                 }
+                // 窗口隐藏时，设置为等待模式，避免频繁唤醒
+                event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
             }
         }
     }
@@ -235,7 +243,10 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
         cause: winit::event::StartCause,
     ) {
         if let winit::event::StartCause::ResumeTimeReached { .. } = &cause {
-            self.gl_window.as_mut().unwrap().window().request_redraw();
+            // 只有在窗口可见时才请求重绘
+            if !self.window_hidden && self.gl_window.is_some() {
+                self.gl_window.as_mut().unwrap().window().request_redraw();
+            }
         }
     }
 
