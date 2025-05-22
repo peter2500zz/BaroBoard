@@ -8,7 +8,7 @@ use crate::my_structs::*;
 #[derive(Serialize, Deserialize)]
 pub struct LinkConfigSchema {
     pub version: String,
-    pub pages: Vec<Page>
+    pub program_links: Vec<ProgramLink>,
 }
 
 
@@ -37,15 +37,15 @@ impl LinkSave {
     }
 
 
-    pub fn save_conf(&self, pages: Vec<Page>) -> Result<(), std::io::Error> {
-        self.save_conf_to_path(pages, ".links.json")
+    pub fn save_conf(&self, program_links: Vec<ProgramLink>) -> Result<(), std::io::Error> {
+        self.save_conf_to_path(program_links, ".links.json")
     }
 
 
-    pub fn save_conf_to_path(&self, pages: Vec<Page>, path: &str) -> Result<(), std::io::Error> {
+    pub fn save_conf_to_path(&self, program_links: Vec<ProgramLink>, path: &str) -> Result<(), std::io::Error> {
         let links_config = LinkConfigSchema {
             version: "0.1.1".to_string(),
-            pages: pages,
+            program_links: program_links,
         };
 
         let serialized = serde_json::to_string_pretty(&links_config)?;
@@ -82,7 +82,7 @@ impl MyApp {
                             self.link_popups.link_save.error_called = false;
                         };
                         if ui.button("重试").clicked() {
-                            match self.link_popups.link_save.save_conf(self.pages.clone()) {
+                            match self.link_popups.link_save.save_conf(self.program_links.clone()) {
                                 Ok(_) => {
                                     println!("保存成功");
                                     self.link_popups.link_save.error_called = false;

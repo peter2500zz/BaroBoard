@@ -43,34 +43,14 @@ pub struct Page {
     pub title: String,
 }
 
-impl Default for Page {
-    fn default() -> Self {
-        Self {
-            program_links: Vec::new(),
-            title: "新页面".to_string(),
-        }
-    }
-}
-
-impl Page {
-    pub fn new(title: String, programms: Vec<ProgramLink>) -> Self {
-        Self {
-            program_links: programms,
-            title: title,
-        }
-    }
-}
-
 
 pub struct LinkPosition {
-    pub page_index: usize,
     pub link_index: usize,
 }
 
 impl LinkPosition {
-    pub fn new(page_index: usize, link_index: usize) -> Self {
+    pub fn new(link_index: usize) -> Self {
         Self {
-            page_index: page_index,
             link_index: link_index,
         }
     }
@@ -81,8 +61,8 @@ pub const DOUBLE_ALT_COOLDOWN: u64 = 500;
 pub struct MyApp {
     pub proxy: winit::event_loop::EventLoopProxy<UserEvent>,
 
-    pub pages: Vec<Page>,
-    pub current_page_index: usize,
+    pub program_links: Vec<ProgramLink>,
+    pub current_tag: Option<String>,
     pub title: String,
     pub search_text: String,
     pub sorted_program_links: Vec<ProgramLink>,
@@ -105,24 +85,21 @@ impl MyApp {
         called: Arc<Mutex<bool>>,
         proxy: winit::event_loop::EventLoopProxy<UserEvent>
     ) -> Self {
-        let pages = match LinkSave::load_conf(".links.json") {
+        let program_links = match LinkSave::load_conf(".links.json") {
             Ok(links_config) => {
-                links_config.pages
+                links_config.program_links
             },
             Err(e) => {
                 println!("{}", e);
-                vec![Page::new(
-                    "页面".to_string(), 
-                    Vec::new()
-                )]
+                Vec::new()
             },
         };
 
         Self {
             proxy: proxy,
 
-            pages,
-            current_page_index: 0,
+            program_links: program_links,
+            current_tag: None,
             title: "BaroBoard 工具箱".to_string(),
             search_text: "".to_string(),
             sorted_program_links: Vec::new(),

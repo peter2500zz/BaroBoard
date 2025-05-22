@@ -10,7 +10,6 @@ pub struct LinkConfig {
     should_close: bool,
     is_new_link: bool,
     
-    page_to_save: usize,
     index_of_the_link: usize,
 
     // 临时变量们
@@ -25,7 +24,6 @@ impl LinkConfig {
             called: false,
             should_close: false,
             is_new_link: false,
-            page_to_save: 0,
             index_of_the_link: 0,
             name: "".to_string(),
             icon_path: None,
@@ -37,7 +35,6 @@ impl LinkConfig {
     pub fn config_existing_link(&mut self, position: LinkPosition, link: &ProgramLink) {
         self.called = true;
         self.is_new_link = false;
-        self.page_to_save = position.page_index;
         self.index_of_the_link = position.link_index;
 
         self.name = link.name.clone();
@@ -46,10 +43,9 @@ impl LinkConfig {
     }
 
     
-    pub fn config_new_link(&mut self, position: LinkPosition) {
+    pub fn config_new_link(&mut self) {
         self.called = true;
         self.is_new_link = true;
-        self.page_to_save = position.page_index;
 
         self.name = "".to_string();
         self.icon_path = None;
@@ -150,7 +146,7 @@ impl MyApp {
                         
                         if clicked {
                             // 创建不需要清除之前的图片缓存
-                            self.pages[self.link_popups.link_config.page_to_save].program_links.push(
+                            self.program_links.push(
                                 ProgramLink::new(
                                     self.link_popups.link_config.name.clone(),
                                     self.link_popups.link_config.icon_path.clone().unwrap_or("".to_string()),
@@ -158,7 +154,7 @@ impl MyApp {
                                 )
                             );
                             
-                            match self.link_popups.link_save.save_conf(self.pages.clone()) {
+                            match self.link_popups.link_save.save_conf(self.program_links.clone()) {
                                 Ok(_) => println!("保存成功"),
                                 Err(e) => {
                                     println!("保存失败: {}", e);
@@ -173,7 +169,7 @@ impl MyApp {
                     
                 } else {
                     if ui.button("保存").clicked() {
-                        let current_link = &mut self.pages[self.link_popups.link_config.page_to_save].program_links[self.link_popups.link_config.index_of_the_link];
+                        let current_link = &mut self.program_links[self.link_popups.link_config.index_of_the_link];
                         // 尝试移除之前的缓存标记
                         if let Some(icon_path) = self.cached_icon.get_mut(&current_link.icon_path) {
                             icon_path.remove(&current_link.uuid);
@@ -189,7 +185,7 @@ impl MyApp {
                         current_link.icon_path = self.link_popups.link_config.icon_path.clone().unwrap_or("".to_string());
                         current_link.run_command = self.link_popups.link_config.run_command.clone();
 
-                        match self.link_popups.link_save.save_conf(self.pages.clone()) {
+                        match self.link_popups.link_save.save_conf(self.program_links.clone()) {
                             Ok(_) => println!("保存成功"),
                             Err(e) => {
                                 println!("保存失败: {}", e);
