@@ -9,6 +9,10 @@ use pinyin::ToPinyin;
 
 use crate::my_structs::*;
 
+/// 表示程序链接在列表中的索引位置
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ProgramLinkIndex(usize);
+
 impl MyApp {
     pub fn main_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui)  {        
         // 添加面板的顺序非常重要，影响最终的布局
@@ -153,6 +157,10 @@ impl MyApp {
         // 显示页面
         if let Some(page) = self.pages.get(self.current_page_index) {
             
+            // 记录拖拽源和目标位置
+            let mut drag_from = None;
+            let mut drag_to = None;
+            
             // 如果搜索框里有内容，则使用排序后的程序列表，否则使用页面中的程序列表
             let chunks: Vec<_> = (if self.search_text.is_empty() {
                 &page.program_links
@@ -184,6 +192,9 @@ impl MyApp {
             for (i, chunk) in chunks.iter().enumerate() {
                 ui.horizontal(|ui| {
                     for (link_index, program) in (*chunk).iter().enumerate() {
+                        // 计算当前项目在整个列表中的绝对索引
+                        let absolute_index = i * 6 + link_index;
+                        
                         // 图标与名称
                         ui.vertical(|ui| {
                             // 注册对icon_path的缓存 - 使用entry API优化
@@ -193,6 +204,9 @@ impl MyApp {
                                 .insert(program.uuid.clone());
                             
                             let btn = Box::new(|ui: &mut egui::Ui| {
+                                if self.edit_mode {
+                                    ui.style_mut().visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
+                                };
                                 ui.add_sized(
                                     egui::vec2(96.0, 96.0),
                                     egui::ImageButton::new(format!("file://{}", &program.icon_path))
@@ -200,12 +214,52 @@ impl MyApp {
                             });
 
                             let response = if self.edit_mode {
-                                ui.dnd_drag_source(egui::Id::new(&program.uuid), (), |ui| {
+                                // 在编辑模式下启用拖拽
+                                ui.dnd_drag_source(egui::Id::new(&program.uuid), ProgramLinkIndex(absolute_index), |ui| {
+                                    // 绘制图标按钮
                                     btn(ui)
                                 }).response
                             } else {
                                 btn(ui)
                             };
+                            
+                            // 检查是否有拖拽悬停在当前项目上
+                            if self.edit_mode {
+                                if let (Some(pointer), Some(_)) = (
+                                    ui.input(|i| i.pointer.interact_pos()),
+                                    response.dnd_hover_payload::<ProgramLinkIndex>(),
+                                ) {
+                                    // 获取当前项目的矩形区域，用于绘制视觉提示
+                                    let rect = response.rect;
+                                    
+                                    // 创建线条样式
+                                    let stroke = egui::Stroke::new(2.0, egui::Color32::BLACK);
+                                    
+                                    // 根据鼠标位置确定插入位置
+                                    if pointer.x < rect.center().x {
+                                        // 在左侧绘制垂直线
+                                        ui.painter().vline(rect.left(), rect.y_range(), stroke);
+                                    } else {
+                                        // 在右侧绘制垂直线
+                                        ui.painter().vline(rect.right(), rect.y_range(), stroke);
+                                    }
+                                    
+                                    // 检查是否释放了拖拽
+                                    if let Some(dragged_index) = response.dnd_release_payload::<ProgramLinkIndex>() {
+                                        // 记录拖拽源和目标
+                                        drag_from = Some(dragged_index.0);
+                                        
+                                        // 根据鼠标位置确定是插入到左侧还是右侧
+                                        let target_index = if pointer.x < rect.center().x {
+                                            absolute_index
+                                        } else {
+                                            absolute_index + 1
+                                        };
+                                        
+                                        drag_to = Some(target_index);
+                                    }
+                                }
+                            }
                             
                             if !self.link_popups.link_config.called {
                                 if self.edit_mode && response.clicked() {
@@ -327,6 +381,27 @@ impl MyApp {
                         self.link_popups.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
                     }
                 });
+            }
+            
+            // 处理拖拽重排
+            if let (Some(from_idx), Some(to_idx)) = (drag_from, drag_to) {
+                if from_idx != to_idx && self.search_text.is_empty() {
+                    // 获取对当前页面的可变引用
+                    if let Some(page) = self.pages.get_mut(self.current_page_index) {
+                        // 先移除源项目
+                        let program = page.program_links.remove(from_idx);
+                        
+                        // 调整目标索引（如果源在目标之前）
+                        let adjusted_to_idx = if from_idx < to_idx {
+                            to_idx - 1
+                        } else {
+                            to_idx
+                        };
+                        
+                        // 插入到目标位置
+                        page.program_links.insert(adjusted_to_idx, program);
+                    }
+                }
             }
         }
         // ctx.texture_ui(ui);
