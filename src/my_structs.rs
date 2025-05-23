@@ -44,6 +44,7 @@ pub struct Page {
 }
 
 
+#[derive(Debug)]
 pub struct LinkPosition {
     pub link_index: usize,
 }

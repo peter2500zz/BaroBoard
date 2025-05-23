@@ -206,7 +206,9 @@ impl MyApp {
                             )
                         });
 
-                        let response = if self.edit_mode {
+                        let enable_drag = self.edit_mode && !self.popups.called;
+
+                        let response = if enable_drag {
                             // 在编辑模式下启用拖拽
                             ui.dnd_drag_source(egui::Id::new(&program.uuid), ProgramLinkIndex(absolute_index), |ui| {
                                 // 绘制图标按钮
@@ -217,7 +219,7 @@ impl MyApp {
                         };
                         
                         // 检查是否有拖拽悬停在当前项目上
-                        if self.edit_mode {
+                        if enable_drag {
                             if let (Some(pointer), Some(_)) = (
                                 ui.input(|i| i.pointer.interact_pos()),
                                 response.dnd_hover_payload::<ProgramLinkIndex>(),
@@ -305,7 +307,7 @@ impl MyApp {
                                     
                                     if ui.button("删除")
                                     .clicked() {
-                                        
+                                        self.popups.delete_link(LinkPosition::new(link_index));
                                         // self.delete_link(link_index);
                                         
                                         ui.close_menu();

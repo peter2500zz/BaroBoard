@@ -51,9 +51,10 @@ impl LinkConfig {
 
 impl MyApp {
     pub fn show_link_config(&mut self, ui: &mut egui::Ui) {
+        let mut show = self.popups.called.clone();
         let mut should_save = false;
         let mut should_close = false;
-        
+
         // 设置页面
         egui::Window::new(if self.popups.link_config.is_new_link {
             "创建快捷方式"
@@ -66,10 +67,10 @@ impl MyApp {
         
         .fade_in(true)
         .fade_out(true)
-        .open(&mut self.popups.called)
+        .open(&mut show)
 
         .show(ui.ctx(), |ui| {
-            
+
             if ui.add_sized(
                 egui::vec2(96.0, 96.0),
                 egui::ImageButton::new(format!("file://{}", &self.popups.link_config.icon_path.clone().unwrap_or("你还没有添加任何图片！".to_string())))
@@ -85,7 +86,7 @@ impl MyApp {
                     self.popups.link_config.icon_path = Some(path.display().to_string());
                 }
             }
-            
+
             ui.label(&self.popups.link_config.icon_path.clone().unwrap_or("↑ 你至少需要一张图片！".to_string()));
 
             ui.horizontal(|ui| {
@@ -111,7 +112,7 @@ impl MyApp {
                 })
                 ;
             });
-            
+
             ui.label(
                 egui::RichText::new("tip: 右键命令输入框可以打开路径选择器")
                     .weak()
@@ -182,18 +183,19 @@ impl MyApp {
             })});
         });
 
-        if should_save {
-            self.popups.save_conf(self.program_links.clone());
-        }
 
-        if should_close {
-            self.popups.called = false;
-        }
-
-        if !self.popups.called {
+        if (!show && !should_close && self.popups.called) || should_close {
+            println!("*你* 关闭了对吧？");
+            // 用户关闭
             if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
                 self.icon_will_clean.push(icon_path);
             }
+            
+            if should_save {
+                self.popups.save_conf(self.program_links.clone());
+            }
+
+            self.popups.called = false;
         }
     }
 }
