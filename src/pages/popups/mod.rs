@@ -22,7 +22,6 @@ pub enum PopupType {
     LinkConfig,
     Delete,
     CannotSave,
-    Info,
 }
 
 pub struct Popups {

@@ -14,6 +14,7 @@ pub struct LinkConfig {
     pub name: String,
     pub icon_path: Option<String>,
     pub run_command: String,
+    pub tags: HashSet<String>,
 }
 
 impl LinkConfig {
@@ -24,6 +25,7 @@ impl LinkConfig {
             name: "".to_string(),
             icon_path: None,
             run_command: "".to_string(),
+            tags: HashSet::new(),
         }
     }
 
@@ -35,6 +37,7 @@ impl LinkConfig {
         self.name = link.name.clone();
         self.icon_path = Some(link.icon_path.clone());
         self.run_command = link.run_command.clone();
+        self.tags = HashSet::from_iter(link.tags.clone());
     }
 
     
@@ -44,6 +47,7 @@ impl LinkConfig {
         self.name = "".to_string();
         self.icon_path = None;
         self.run_command = "".to_string();
+        self.tags = HashSet::new();
     }
 }
 
@@ -118,6 +122,31 @@ impl MyApp {
                     .weak()
             );
 
+
+            egui::ComboBox::from_label("选择标签")
+                .selected_text(if self.popups.link_config.tags.is_empty() {"无标签".to_string()} else {format!("{} 个标签", self.popups.link_config.tags.len())})
+                .truncate()
+                .show_ui(ui, |ui| {
+                    for tag in &self.tags {
+                        let is_select = self.popups.link_config.tags.contains(tag);
+                        let mut selected = is_select.clone();
+
+                        ui.checkbox(
+                            &mut selected,
+                            tag.clone()
+                        );
+                        
+                        if selected {
+                            if !is_select {
+                                self.popups.link_config.tags.insert(tag.clone());
+                            }
+                        } else {
+                            self.popups.link_config.tags.remove(tag);
+                        }
+                    }
+                });
+
+
             ui.separator();
             // 保存与取消按钮
             ui.with_layout(egui::Layout {
@@ -143,6 +172,7 @@ impl MyApp {
                                     self.popups.link_config.name.clone(),
                                     self.popups.link_config.icon_path.clone().unwrap_or("".to_string()),
                                     self.popups.link_config.run_command.clone(),
+                                    self.popups.link_config.tags.clone().into_iter().collect()
                                 )
                             );
                             
@@ -169,7 +199,8 @@ impl MyApp {
                         current_link.name = self.popups.link_config.name.clone();
                         current_link.icon_path = self.popups.link_config.icon_path.clone().unwrap_or("".to_string());
                         current_link.run_command = self.popups.link_config.run_command.clone();
-                        
+                        current_link.tags = self.popups.link_config.tags.clone().into_iter().collect();
+
                         should_save = true;
                         should_close = true;
                     }
@@ -185,17 +216,22 @@ impl MyApp {
 
 
         if (!show && !should_close && self.popups.called) || should_close {
-            println!("*你* 关闭了对吧？");
-            // 用户关闭
-            if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
-                self.icon_will_clean.push(icon_path);
-            }
-            
-            if should_save {
-                self.popups.save_conf(self.program_links.clone());
-            }
+            // 只有在窗口还是打开状态时才执行清理
+            if self.popups.called {
+                println!("*你* 关闭了对吧？");
+                // 用户关闭
+                if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
+                    if !should_save {
+                        self.icon_will_clean.push(icon_path);
+                    }
+                }
+                
+                if should_save {
+                    self.popups.save_conf(self.program_links.clone());
+                }
 
-            self.popups.called = false;
+                self.popups.called = false;
+            }
         }
     }
 }

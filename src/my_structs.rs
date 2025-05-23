@@ -11,6 +11,7 @@ pub struct ProgramLink {
     pub name: String,
     pub icon_path: String,
     pub run_command: String,
+    pub tags: Vec<String>,
     pub uuid: String,
 }
 
@@ -20,17 +21,19 @@ impl Default for ProgramLink {
             name: "".to_string(),
             icon_path: "".to_string(),
             run_command: "".to_string(),
+            tags: Vec::new(),
             uuid: Uuid::new_v4().to_string(),
         }
     }
 }
 
 impl ProgramLink {
-    pub fn new(name: String, icon_path: String, run_command: String) -> Self {
+    pub fn new(name: String, icon_path: String, run_command: String, tags: Vec<String>) -> Self {
         Self {
             name: name,
             icon_path: icon_path,
             run_command: run_command,
+            tags: tags,
             ..Default::default()
         }
     }
@@ -63,6 +66,7 @@ pub struct MyApp {
     pub proxy: winit::event_loop::EventLoopProxy<UserEvent>,
 
     pub program_links: Vec<ProgramLink>,
+    pub tags: Vec<String>,
     pub current_tag: Option<String>,
     pub title: String,
     pub search_text: String,
@@ -100,6 +104,7 @@ impl MyApp {
             proxy: proxy,
 
             program_links: program_links,
+            tags: vec!["工具".to_string(), "游戏".to_string(), "开发".to_string()],
             current_tag: None,
             title: "BaroBoard 工具箱".to_string(),
             search_text: "".to_string(),
