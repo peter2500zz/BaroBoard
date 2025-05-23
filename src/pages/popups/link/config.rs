@@ -124,9 +124,26 @@ impl MyApp {
 
 
             egui::ComboBox::from_label("选择标签")
-                .selected_text(if self.popups.link_config.tags.is_empty() {"无标签".to_string()} else {format!("{} 个标签", self.popups.link_config.tags.len())})
+                .selected_text(if self.popups.link_config.tags.is_empty() {
+                    "无标签".to_string()
+                } else {
+                    let tag_counts = self.popups.link_config.tags
+                        .iter()
+                        .filter(|&tag| self.tags.contains(tag))
+                        .collect::<Vec<_>>()
+                        .len();
+                    if tag_counts == 0 {
+                        "无标签".to_string()
+                    } else {
+                        format!("{} 个标签", tag_counts)
+                    }
+                })
                 .truncate()
                 .show_ui(ui, |ui| {
+                    if self.tags.is_empty() {
+                        ui.label(egui::RichText::new("你还没有任何标签").weak());
+                    }
+
                     for tag in &self.tags {
                         let is_select = self.popups.link_config.tags.contains(tag);
                         let mut selected = is_select.clone();
@@ -227,7 +244,7 @@ impl MyApp {
                 }
                 
                 if should_save {
-                    self.popups.save_conf(self.program_links.clone());
+                    self.popups.save_conf(self.program_links.clone(), self.tags.clone());
                 }
 
                 self.popups.called = false;

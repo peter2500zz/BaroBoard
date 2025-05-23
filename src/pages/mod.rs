@@ -55,7 +55,7 @@ impl MyApp {
                     // 如果搜索框里有内容，则进行搜索
                     if !self.search_text.is_empty() {
                         // 计算相似度
-                        let mut results: Vec<(ProgramLink, f64)> = self.program_links
+                        let mut results: Vec<(ProgramLink, f64)> = if let Some(tag) = self.current_tag.clone() {sort_by_tag(self.program_links.clone(), tag)} else {self.program_links.clone()}
                             .iter()
                             .map(|program_link| {
                                 // 计算多种情况下的相似度得分
@@ -91,11 +91,12 @@ impl MyApp {
                                 // 这一步的作用是，如果用户使用Tab聚焦到按钮时，不会触发搜索框的lost_focus，避免重复触发
                                 search_text.lost_focus()
                             {
-                                println!("选中的程序: {} 权重: {}", results[0].0.name, results[0].1);
-                                match Command::new(&results[0].0.run_command).spawn() {
-                                    Ok(_) => println!("{} 运行成功", results[0].0.name),
+                                
+                                println!("选中的程序: {} 权重: {}", self.sorted_program_links[0].name, results[0].1);
+                                match Command::new(&self.sorted_program_links[0].run_command).spawn() {
+                                    Ok(_) => println!("{} 运行成功", self.sorted_program_links[0].name),
                                     Err(e) => {
-                                        println!("{} 运行失败: {}", results[0].0.name, e);
+                                        println!("{} 运行失败: {}", self.sorted_program_links[0].name, e);
                                     },
                                 }
                                 self.search_text = "".to_string();
@@ -157,7 +158,7 @@ impl MyApp {
         
         // 如果搜索框里有内容，则使用排序后的程序列表，否则使用页面中的程序列表
         let display_program_links = if self.search_text.is_empty() {
-            self.program_links.clone()
+            if let Some(tag) = self.current_tag.clone() {sort_by_tag(self.program_links.clone(), tag)} else {self.program_links.clone()}
         } else {
             self.sorted_program_links.clone()
         };
@@ -403,7 +404,7 @@ impl MyApp {
         // ctx.texture_ui(ui);
         
         if should_save {
-            self.popups.save_conf(self.program_links.clone());
+            self.popups.save_conf(self.program_links.clone(), self.tags.clone());
         }
     }
 }

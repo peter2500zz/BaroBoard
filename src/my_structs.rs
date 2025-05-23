@@ -66,7 +66,7 @@ pub struct MyApp {
     pub proxy: winit::event_loop::EventLoopProxy<UserEvent>,
 
     pub program_links: Vec<ProgramLink>,
-    pub tags: Vec<String>,
+    pub tags: HashSet<String>,
     pub current_tag: Option<String>,
     pub title: String,
     pub search_text: String,
@@ -90,21 +90,21 @@ impl MyApp {
         called: Arc<Mutex<bool>>,
         proxy: winit::event_loop::EventLoopProxy<UserEvent>
     ) -> Self {
-        let program_links = match crate::pages::popups::link::save::load_conf(".links.json") {
+        let (program_links, tags) = match crate::pages::popups::link::save::load_conf(".links.json") {
             Ok(links_config) => {
-                links_config.program_links
+                (links_config.program_links, links_config.tags)
             },
             Err(e) => {
                 println!("{}", e);
-                Vec::new()
+                (Vec::new(), HashSet::new())
             },
         };
 
-        Self {
+        Self {  
             proxy: proxy,
 
             program_links: program_links,
-            tags: vec!["工具".to_string(), "游戏".to_string(), "开发".to_string()],
+            tags: tags,
             current_tag: None,
             title: "BaroBoard 工具箱".to_string(),
             search_text: "".to_string(),
@@ -116,7 +116,6 @@ impl MyApp {
             edit_mode: false,
         }
     }
-
 
     pub fn clean_unused_icon(&mut self, ctx: &egui::Context) {
         for icon_path in self.icon_will_clean.iter() {
@@ -162,4 +161,12 @@ impl Drop for MyApp {
     fn drop(&mut self) {
         println!("MyApp 被销毁");
     }
+}
+
+pub fn sort_by_tag(program_links: Vec<ProgramLink>, tag: String) -> Vec<ProgramLink> {
+    program_links
+    .iter()
+    .filter(|link| link.tags.contains(&tag))
+    .cloned()
+    .collect()
 }

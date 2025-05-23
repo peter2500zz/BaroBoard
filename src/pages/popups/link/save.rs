@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Read, io::Write};
+use std::collections::HashSet;
 
 use crate::my_structs::*;
 
@@ -7,17 +8,19 @@ use crate::my_structs::*;
 #[derive(Serialize, Deserialize)]
 pub struct LinkConfigSchema {
     pub version: String,
+    pub tags: HashSet<String>,
     pub program_links: Vec<ProgramLink>,
 }
 
-pub fn save_conf(program_links: Vec<ProgramLink>) -> Result<(), std::io::Error> {
-    save_conf_to_path(program_links, ".links.json")
+pub fn save_conf(program_links: Vec<ProgramLink>, tags: HashSet<String>) -> Result<(), std::io::Error> {
+    save_conf_to_path(program_links, tags, ".links.json")
 }
 
 
-pub fn save_conf_to_path(program_links: Vec<ProgramLink>, path: &str) -> Result<(), std::io::Error> {
+pub fn save_conf_to_path(program_links: Vec<ProgramLink>, tags: HashSet<String>, path: &str) -> Result<(), std::io::Error> {
     let links_config = LinkConfigSchema {
         version: "0.1.1".to_string(),
+        tags: tags,
         program_links: program_links,
     };
 
