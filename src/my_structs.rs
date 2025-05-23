@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use std::sync::{Arc, Mutex};
-use crate::pages::popups::link::{LinkPopups, save::LinkSave};
+use crate::pages::popups::Popups;
 use crate::window::{self, event::UserEvent};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -68,7 +68,7 @@ pub struct MyApp {
     pub sorted_program_links: Vec<ProgramLink>,
     
     // 设置相关
-    pub link_popups: LinkPopups,
+    pub popups: Popups,
     
     // 需要清理的图标
     pub icon_will_clean: Vec<String>,
@@ -85,7 +85,7 @@ impl MyApp {
         called: Arc<Mutex<bool>>,
         proxy: winit::event_loop::EventLoopProxy<UserEvent>
     ) -> Self {
-        let program_links = match LinkSave::load_conf(".links.json") {
+        let program_links = match crate::pages::popups::link::save::load_conf(".links.json") {
             Ok(links_config) => {
                 links_config.program_links
             },
@@ -103,7 +103,7 @@ impl MyApp {
             title: "BaroBoard 工具箱".to_string(),
             search_text: "".to_string(),
             sorted_program_links: Vec::new(),
-            link_popups: LinkPopups::new(),
+            popups: Popups::new(),
             cached_icon: HashMap::new(),
             icon_will_clean: Vec::new(),
             called: called,

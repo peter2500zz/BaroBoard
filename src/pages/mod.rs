@@ -137,9 +137,10 @@ impl MyApp {
             });
             // });
             egui::ScrollArea::vertical().show(ui, |ui| {
-                self.show_delete_link(ui);
-                self.show_setting_window(ui);
-                self.show_config_save_error(ui);
+                self.show_popup(ui);
+                // self.show_delete_link(ui);
+                // self.show_setting_window(ui);
+                // self.show_config_save_error(ui);
                 self.show_page(ui);
             });
         });
@@ -148,26 +149,26 @@ impl MyApp {
 
     fn show_page(&mut self, ui: &mut egui::Ui) {
         // 显示页面
+        let mut should_save = false;
 
         // 记录拖拽源和目标位置
         let mut drag_from = None;
         let mut drag_to = None;
         
         // 如果搜索框里有内容，则使用排序后的程序列表，否则使用页面中的程序列表
-        let chunks: Vec<_> = (if self.search_text.is_empty() {
-            &self.program_links
+        let display_program_links = if self.search_text.is_empty() {
+            self.program_links.clone()
         } else {
-            &self.sorted_program_links
-        })
-        // 每次选取6个程序，并显示在同一行
-        .chunks(6).collect();
+            self.sorted_program_links.clone()
+        };
+
+        let chunks: Vec<_> = display_program_links.chunks(6).collect();
 
         if chunks.is_empty() && !self.edit_mode {
             ui.centered_and_justified(|ui| {
                 ui.label(
                     egui::RichText::new(
-                        if self.search_text.is_empty() {"
-                            这个页面中还没有任何快捷方式，你可以在编辑模式中创建一个"
+                        if self.search_text.is_empty() {"这里还没有任何快捷方式！不过你可以在编辑模式中创建一个"
                         } else {
                             "没有找到任何快捷方式"
                         })
@@ -249,15 +250,17 @@ impl MyApp {
                                     };
                                     
                                     drag_to = Some(target_index);
-                                    self.link_popups.link_save.save_conf(self.program_links.clone());
+
+                                    println!("由于拖拽 尝试保存");
+                                    should_save = true;
                                 }
                             }
                         }
                         
-                        if !self.link_popups.link_config.called {
+                        if !self.popups.called {
                             if self.edit_mode && response.clicked() {
                                 // 打开设置窗口
-                                self.link_popups.link_config.config_existing_link(LinkPosition::new(link_index), program);
+                                self.popups.config_existing_link(LinkPosition::new(link_index), program);
 
                             } else {
                                 if response.clicked() {
@@ -296,14 +299,14 @@ impl MyApp {
                                         ui.close_menu();
                                     }
                                     if ui.button("编辑").clicked() {
-                                        self.link_popups.link_config.config_existing_link(LinkPosition::new(link_index), program);
+                                        self.popups.config_existing_link(LinkPosition::new(link_index), program);
                                         ui.close_menu();
                                     }
                                     
                                     if ui.button("删除")
                                     .clicked() {
                                         
-                                        self.link_popups.link_delete.delete_link(link_index);
+                                        // self.delete_link(link_index);
                                         
                                         ui.close_menu();
                                     }
@@ -337,8 +340,8 @@ impl MyApp {
                             egui::vec2(96.0, 96.0),
                             egui::Button::new(egui::RichText::new("➕").size(48.))
                         );
-                        if response.clicked() && !self.link_popups.link_config.called  {
-                            self.link_popups.link_config.config_new_link();
+                        if response.clicked() && !self.popups.called  {
+                            self.popups.config_new_link();
                         }
         
                     });
@@ -357,8 +360,8 @@ impl MyApp {
                         egui::vec2(96.0, 96.0),
                         egui::Button::new(egui::RichText::new("➕").size(48.))
                     );
-                    if response.clicked() && !self.link_popups.link_config.called  {
-                        self.link_popups.link_config.config_new_link();
+                    if response.clicked() && !self.popups.called  {
+                        self.popups.config_new_link();
                     }
                 });
             }
@@ -370,8 +373,8 @@ impl MyApp {
                     egui::vec2(96.0, 96.0),
                     egui::Button::new(egui::RichText::new("➕").size(48.))
                 );
-                if response.clicked() && !self.link_popups.link_config.called  {
-                    self.link_popups.link_config.config_new_link();
+                if response.clicked() && !self.popups.called  {
+                    self.popups.config_new_link();
                 }
             });
         }
@@ -396,5 +399,9 @@ impl MyApp {
             }
         }
         // ctx.texture_ui(ui);
+        
+        if should_save {
+            self.popups.save_conf(self.program_links.clone());
+        }
     }
 }
