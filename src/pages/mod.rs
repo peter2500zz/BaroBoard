@@ -58,20 +58,28 @@ impl MyApp {
                         let mut results: Vec<(ProgramLink, f64)> = if let Some(tag) = self.current_tag.clone() {sort_by_tag(self.program_links.clone(), tag)} else {self.program_links.clone()}
                             .iter()
                             .map(|program_link| {
-                                // 计算多种情况下的相似度得分
-                                let original_score = jaro_winkler(&self.search_text, &program_link.name);
-                                
-                                let pinyin_score = jaro_winkler(
-                                    &self.search_text, 
-                                    &program_link.name.chars().map(|c| {
-                                        c.to_pinyin()
-                                        .map(|p| p.plain().to_string())
-                                        .unwrap_or_else(|| c.to_string())
-                                }).collect::<String>());
-                                
-                                // 取最高分
-                                let max_score = original_score
-                                    .max(pinyin_score);
+                                let max_score = program_link.name.iter().map(|name| {
+                                    // 计算多种情况下的相似度得分
+                                    let original_score = jaro_winkler(&self.search_text, &name);
+                                    let lower_score = jaro_winkler(&self.search_text, &name.to_lowercase());
+
+                                    let pinyin_score = jaro_winkler(
+                                        &self.search_text, 
+                                        &name.chars().map(|c| {
+                                            c.to_pinyin()
+                                            .map(|p| p.plain().to_string())
+                                            .unwrap_or_else(|| c.to_string())
+                                    }).collect::<String>());
+
+                                    // 取最高分
+                                    original_score
+                                        .max(lower_score)
+                                        .max(pinyin_score)
+                                })
+                                .collect::<Vec<f64>>()
+                                .iter()
+                                .cloned()
+                                .fold(0., f64::max);
 
                                 (program_link.clone(), max_score)
                             })
@@ -92,11 +100,11 @@ impl MyApp {
                                 search_text.lost_focus()
                             {
                                 
-                                println!("选中的程序: {} 权重: {}", self.sorted_program_links[0].name, results[0].1);
+                                println!("选中的程序: {} 权重: {}", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string()), results[0].1);
                                 match Command::new(&self.sorted_program_links[0].run_command).spawn() {
-                                    Ok(_) => println!("{} 运行成功", self.sorted_program_links[0].name),
+                                    Ok(_) => println!("{} 运行成功", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string())),
                                     Err(e) => {
-                                        println!("{} 运行失败: {}", self.sorted_program_links[0].name, e);
+                                        println!("{} 运行失败: {}", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string()), e);
                                     },
                                 }
                                 self.search_text = "".to_string();
@@ -268,9 +276,9 @@ impl MyApp {
                             } else {
                                 if response.clicked() {
                                     match Command::new(&program.run_command).spawn() {
-                                        Ok(_) => println!("{} 运行成功", program.name),
+                                        Ok(_) => println!("{} 运行成功", program.name.get(0).unwrap_or(&"".to_string())),
                                         Err(e) => {
-                                            println!("{} 运行失败: {}", program.name, e);
+                                            println!("{} 运行失败: {}", program.name.get(0).unwrap_or(&"".to_string()), e);
                                             
                                         },
                                     }
@@ -283,7 +291,7 @@ impl MyApp {
                                         ui.label(if program.name.is_empty() {
                                             egui::RichText::new("未命名").weak()
                                         } else {
-                                            egui::RichText::new(&program.name)
+                                            egui::RichText::new(&program.name.get(0).unwrap_or(&"".to_string()).to_owned())
                                         });
                                     });
 
@@ -292,9 +300,9 @@ impl MyApp {
                                     if ui.button("运行")
                                     .clicked() {
                                         match Command::new(&program.run_command).spawn() {
-                                            Ok(_) => println!("{} 运行成功", program.name),
+                                            Ok(_) => println!("{} 运行成功", program.name.get(0).unwrap_or(&"".to_string())),
                                             Err(e) => {
-                                                println!("{} 运行失败: {}", program.name, e);
+                                                println!("{} 运行失败: {}", program.name.get(0).unwrap_or(&"".to_string()), e);
                                                 
                                             },
                                         }
@@ -319,7 +327,7 @@ impl MyApp {
                         
                         // 快捷方式名称Label，最大宽度为96px，仅限一行
                         ui.allocate_ui(egui::Vec2 { x: 96.0, y: 96.0 }, |ui| {
-                            let mut job = egui::text::LayoutJob::single_section(program.name.to_owned(), 
+                            let mut job = egui::text::LayoutJob::single_section(program.name.get(0).unwrap_or(&"".to_string()).to_owned(), 
                                 egui::TextFormat {
                                 ..Default::default()
                             });

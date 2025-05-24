@@ -8,7 +8,7 @@ use crate::window::{self, event::UserEvent};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProgramLink {
-    pub name: String,
+    pub name: Vec<String>,
     pub icon_path: String,
     pub run_command: String,
     pub tags: Vec<String>,
@@ -18,7 +18,7 @@ pub struct ProgramLink {
 impl Default for ProgramLink {
     fn default() -> Self {
         Self {
-            name: "".to_string(),
+            name: vec!["".to_string()],
             icon_path: "".to_string(),
             run_command: "".to_string(),
             tags: Vec::new(),
@@ -28,7 +28,7 @@ impl Default for ProgramLink {
 }
 
 impl ProgramLink {
-    pub fn new(name: String, icon_path: String, run_command: String, tags: Vec<String>) -> Self {
+    pub fn new(name: Vec<String>, icon_path: String, run_command: String, tags: Vec<String>) -> Self {
         Self {
             name: name,
             icon_path: icon_path,

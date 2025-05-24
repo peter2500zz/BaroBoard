@@ -34,7 +34,7 @@ impl LinkConfig {
         self.is_new_link = false;
         self.index_of_the_link = position.link_index;
 
-        self.name = link.name.clone();
+        self.name = link.name.clone().join("/");
         self.icon_path = Some(link.icon_path.clone());
         self.run_command = link.run_command.clone();
         self.tags = HashSet::from_iter(link.tags.clone());
@@ -95,7 +95,7 @@ impl MyApp {
 
             ui.horizontal(|ui| {
                 ui.label("名称");
-                ui.add(egui::TextEdit::singleline(&mut self.popups.link_config.name).hint_text("e.g. 记事本"));
+                ui.add(egui::TextEdit::singleline(&mut self.popups.link_config.name).hint_text("e.g. 记事本/notepad"));
                 
             });
 
@@ -118,7 +118,7 @@ impl MyApp {
             });
 
             ui.label(
-                egui::RichText::new("tip: 右键命令输入框可以打开路径选择器")
+                egui::RichText::new("tip: 名称可以使用 / 来创建别名，也可以只输入一个名称。右键命令输入框可以打开路径选择器")
                     .weak()
             );
 
@@ -186,7 +186,7 @@ impl MyApp {
                             // 创建不需要清除之前的图片缓存
                             self.program_links.push(
                                 ProgramLink::new(
-                                    self.popups.link_config.name.clone(),
+                                    self.popups.link_config.name.clone().split("/").map(|s| s.to_string()).collect(),
                                     self.popups.link_config.icon_path.clone().unwrap_or("".to_string()),
                                     self.popups.link_config.run_command.clone(),
                                     self.popups.link_config.tags.clone().into_iter().collect()
@@ -213,7 +213,7 @@ impl MyApp {
                         // 如果缓存为空，则删除缓存
                         self.icon_will_clean.push(current_link.icon_path.clone());
 
-                        current_link.name = self.popups.link_config.name.clone();
+                        current_link.name = self.popups.link_config.name.clone().split("/").map(|s| s.to_string()).collect();
                         current_link.icon_path = self.popups.link_config.icon_path.clone().unwrap_or("".to_string());
                         current_link.run_command = self.popups.link_config.run_command.clone();
                         current_link.tags = self.popups.link_config.tags.clone().into_iter().collect();

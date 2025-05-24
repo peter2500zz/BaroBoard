@@ -269,7 +269,7 @@ impl MyApp {
                     // egui关闭窗口的动画效果会延迟关闭，这段时间内仍然会被使用
                     .program_links.get(current_index).unwrap_or(&ProgramLink::default())
                     //(ProgramLink { name: "已删除".to_string(), ..Default::default()})
-                    .name
+                    .name.get(0).unwrap_or(&"已删除".to_string())
                 ));
                 
                 ui.separator();
