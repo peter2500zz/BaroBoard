@@ -7,7 +7,7 @@ use crate::my_structs::*;
 
 #[derive(Serialize, Deserialize)]
 pub struct LinkConfigSchema {
-    pub version: String,
+    pub version: u32,
     pub tags: HashSet<String>,
     pub program_links: Vec<ProgramLink>,
 }
@@ -19,7 +19,7 @@ pub fn save_conf(program_links: Vec<ProgramLink>, tags: HashSet<String>) -> Resu
 
 pub fn save_conf_to_path(program_links: Vec<ProgramLink>, tags: HashSet<String>, path: &str) -> Result<(), std::io::Error> {
     let links_config = LinkConfigSchema {
-        version: "0.1.1".to_string(),
+        version: 3,
         tags: tags,
         program_links: program_links,
     };

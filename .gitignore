@@ -4,3 +4,5 @@
 /baks
 .links.json
 drag_and_drop.rs
+.venv
+__pycache__

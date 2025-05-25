@@ -165,6 +165,7 @@ fn main() {
     );
 
     // 在这里控制是否在打开程序的时候就显示
+    #[cfg(debug_assertions)]
     proxy.send_event(event::UserEvent::ShowWindow).unwrap();
     // 启动事件循环，这通常是阻塞的，会一直运行直到应用程序关闭
     // 事件循环会不断处理输入事件、UI更新和渲染，这是GUI应用程序的主要执行模式
