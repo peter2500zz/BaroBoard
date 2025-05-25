@@ -4,32 +4,26 @@ use std::collections::HashSet;
 use crate::my_structs::*;
 
 
-pub struct LinkDelete {
-    pub delete_called: bool,
-    pub page_to_delete: usize,
-    index_of_the_link: usize,
+pub struct Info {
+    pub called: bool,
+    pub title: String,
+    pub content: String,
 }
 
-impl LinkDelete {
+impl Info {
     pub fn new() -> Self {
         Self {
-            delete_called: false, 
-            page_to_delete: 0, 
-            index_of_the_link: 0
+            called: false,
+            title: "".to_string(),
+            content: "".to_string(),
         }
-    }
-
-
-    pub fn delete_link(&mut self, page_index: usize, link_index: usize) {
-        self.page_to_delete = page_index;
-        self.index_of_the_link = link_index;
-        self.delete_called = true;
     }
 }
 
 
 impl MyApp {
-    pub fn show_delete_link(&mut self, ui: &mut egui::Ui) {
+    pub fn show_info(&mut self, ui: &mut egui::Ui) {
+        
         // 删除快捷方式弹窗
         egui::Window::new("你确定要删除这个快捷方式吗？")
         .title_bar(false)
@@ -48,7 +42,6 @@ impl MyApp {
                     self
                     // 这里不能unwarp的原因是
                     // egui关闭窗口的动画效果会延迟关闭，这段时间内仍然会被使用
-                    .pages.get(self.link_popups.link_delete.page_to_delete).cloned().unwrap_or_default()
                     .program_links.get(self.link_popups.link_delete.index_of_the_link).cloned().unwrap_or_default()//(ProgramLink { name: "已删除".to_string(), ..Default::default()})
                     .name
                 ));
@@ -62,7 +55,7 @@ impl MyApp {
                     ui.horizontal(|ui| {
                         if ui.button(egui::RichText::new("确定").color(egui::Color32::RED))
                         .clicked() && self.link_popups.link_delete.delete_called {
-                            let program_links = &mut self.pages[self.link_popups.link_delete.page_to_delete].program_links;
+                            let program_links = &mut self.program_links;
 
                             if let Some(icon_path) = self.cached_icon.get_mut(&program_links[self.link_popups.link_delete.index_of_the_link].icon_path) {
                                 icon_path.remove(&program_links[self.link_popups.link_delete.index_of_the_link].uuid);
@@ -74,7 +67,7 @@ impl MyApp {
 
                             program_links.remove(self.link_popups.link_delete.index_of_the_link);
                             println!("删除成功: {:?}", program_links);
-                            match self.link_popups.link_save.save_conf(self.pages.clone()) {
+                            match self.link_popups.link_save.save_conf(self.program_links.clone()) {
                                 Ok(_) => println!("保存成功"),
                                 Err(e) => {
                                     println!("保存失败: {}", e);
@@ -91,5 +84,26 @@ impl MyApp {
                 });
             });
         });
+    }
+    fn delete_link(&mut self, link_index: usize) {
+        let program_links = &mut self.program_links;
+
+        if let Some(icon_path) = self.cached_icon.get_mut(&program_links[link_index].icon_path) {
+            icon_path.remove(&program_links[link_index].uuid);
+        } else {
+            // 如果不行则强制清空
+            self.cached_icon.insert(program_links[link_index].icon_path.clone(), HashSet::new());
+        }
+        self.icon_will_clean.push(program_links[link_index].icon_path.clone());
+
+        program_links.remove(link_index);
+        println!("删除成功: {:?}", program_links);
+        match self.link_popups.link_save.save_conf(self.program_links.clone()) {
+            Ok(_) => println!("保存成功"),
+            Err(e) => {
+                println!("保存失败: {}", e);
+                self.link_popups.link_save.error_called = true;
+            },
+        };
     }
 }

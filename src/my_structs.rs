@@ -3,35 +3,38 @@ use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use std::sync::{Arc, Mutex};
+use crate::pages::popups::Popups;
+use crate::window::{self, event::UserEvent};
 
-use crate::pages::popups::link::{LinkPopups, save::LinkSave};
-use crate::window;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProgramLink {
-    pub name: String,
+    pub name: Vec<String>,
     pub icon_path: String,
     pub run_command: String,
+    pub tags: HashSet<String>,
     pub uuid: String,
 }
 
 impl Default for ProgramLink {
     fn default() -> Self {
         Self {
-            name: "".to_string(),
+            name: Vec::new(),
             icon_path: "".to_string(),
             run_command: "".to_string(),
+            tags: HashSet::new(),
             uuid: Uuid::new_v4().to_string(),
         }
     }
 }
 
 impl ProgramLink {
-    pub fn new(name: String, icon_path: String, run_command: String) -> Self {
+    pub fn new(name: Vec<String>, icon_path: String, run_command: String, tags: HashSet<String>) -> Self {
         Self {
             name: name,
             icon_path: icon_path,
             run_command: run_command,
+            tags: tags,
             ..Default::default()
         }
     }
@@ -44,49 +47,37 @@ pub struct Page {
     pub title: String,
 }
 
-impl Default for Page {
-    fn default() -> Self {
-        Self {
-            program_links: Vec::new(),
-            title: "新页面".to_string(),
-        }
-    }
-}
 
-impl Page {
-    pub fn new(title: String, programms: Vec<ProgramLink>) -> Self {
-        Self {
-            program_links: programms,
-            title: title,
-        }
-    }
-}
-
-
+#[derive(Debug)]
 pub struct LinkPosition {
-    pub page_index: usize,
     pub link_index: usize,
 }
 
 impl LinkPosition {
-    pub fn new(page_index: usize, link_index: usize) -> Self {
+    pub fn new(link_index: usize) -> Self {
         Self {
-            page_index: page_index,
             link_index: link_index,
         }
     }
 }
 
 
+pub const DOUBLE_ALT_COOLDOWN: u64 = 500;
 pub struct MyApp {
-    pub pages: Vec<Page>,
-    pub current_page_index: usize,
+    pub proxy: winit::event_loop::EventLoopProxy<UserEvent>,
+
+    pub program_links: Vec<ProgramLink>,
+    pub tags: HashSet<String>,
+    pub current_tag: Option<String>,
     pub title: String,
     pub search_text: String,
     pub sorted_program_links: Vec<ProgramLink>,
+
+    // 停止保存模式
+    pub wont_save: bool,
     
     // 设置相关
-    pub link_popups: LinkPopups,
+    pub popups: Popups,
     
     // 需要清理的图标
     pub icon_will_clean: Vec<String>,
@@ -99,34 +90,64 @@ pub struct MyApp {
 }
 
 impl MyApp {
-    pub fn new(called: Arc<Mutex<bool>>) -> Self {
-        let pages = match LinkSave::load_conf(".links.json") {
+    pub fn new(
+        called: Arc<Mutex<bool>>,
+        proxy: winit::event_loop::EventLoopProxy<UserEvent>
+    ) -> Self {
+        let mut popup = Popups::new();
+
+        let links_config = crate::pages::popups::link::save::load_conf(crate::CONFIG_FILE_NAME);
+
+        let (program_links, tags) =  match links_config {
             Ok(links_config) => {
-                links_config.pages
+                let version = links_config.get("version")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as u32;
+                
+                if version < crate::CONFIG_FILE_VERSION {
+                    proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
+                    popup.config_file_too_old();
+                    (Vec::new(), HashSet::new())
+                } else {
+                    // 尝试反序列化为正确的结构体
+                    match serde_json::from_value::<crate::pages::popups::link::save::LinkConfigSchema>(links_config) {
+                        Ok(config) => (config.program_links, config.tags),
+                        Err(_) => {
+                            proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
+                            popup.config_file_format_error();
+                            (Vec::new(), HashSet::new())
+                        }
+                    }
+                }
             },
             Err(e) => {
                 println!("{}", e);
-                vec![Page::new(
-                    "页面".to_string(), 
-                    Vec::new()
-                )]
+                // 检查文件是否存在
+                if std::path::Path::new(crate::CONFIG_FILE_NAME).exists() {
+                    proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
+                    popup.config_file_format_error();
+                }
+                (Vec::new(), HashSet::new())
             },
         };
 
-        Self {
-            pages,
-            current_page_index: 0,
+        Self {  
+            proxy: proxy,
+
+            program_links: program_links,
+            tags: tags,
+            current_tag: None,
             title: "BaroBoard 工具箱".to_string(),
             search_text: "".to_string(),
             sorted_program_links: Vec::new(),
-            link_popups: LinkPopups::new(),
+            popups: popup,
             cached_icon: HashMap::new(),
             icon_will_clean: Vec::new(),
             called: called,
             edit_mode: false,
+            wont_save: false,
         }
     }
-
 
     pub fn clean_unused_icon(&mut self, ctx: &egui::Context) {
         for icon_path in self.icon_will_clean.iter() {
@@ -141,16 +162,25 @@ impl MyApp {
         }
         self.icon_will_clean.clear();
     }
+
+    // pub fn show_window(&self) {
+    //     self.proxy
+    //         .send_event(UserEvent::ShowWindow)
+    //         .unwrap();
+    // }
+
+    pub fn hide_window(&self) {
+        self.proxy
+            .send_event(UserEvent::HideWindow)
+            .unwrap();
+    }
 }
 
 impl window::App for MyApp {
     fn update(&mut self, ctx: &egui::Context) {
-        // if ctx.input(|i| i.focused) {
-        //     let mut called = self.called.lock().unwrap();
-        //     if !*called {
-        //         *called = true;
-        //     }
-        // }
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            self.hide_window();
+        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             self.main_ui(ctx, ui);
@@ -163,4 +193,12 @@ impl Drop for MyApp {
     fn drop(&mut self) {
         println!("MyApp 被销毁");
     }
+}
+
+pub fn sort_by_tag(program_links: Vec<ProgramLink>, tag: String) -> Vec<ProgramLink> {
+    program_links
+    .iter()
+    .filter(|link| link.tags.contains(&tag))
+    .cloned()
+    .collect()
 }

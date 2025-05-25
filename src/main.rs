@@ -12,19 +12,21 @@ use tray_item::{TrayItem, IconSource};
 use single_instance::SingleInstance;
 
 use window::{event, glow_app};
-use my_structs::MyApp;
+use my_structs::{MyApp, DOUBLE_ALT_COOLDOWN};
+
+
+pub const PROGRAM_VERSION: &str = "v0.1.2";
+pub const CONFIG_FILE_VERSION: u32 = 3;
+pub const CONFIG_FILE_NAME: &str = ".links.json";
 
 
 fn main() {
     let instance = SingleInstance::new("BaroBoard").unwrap();
-
+    
     if !instance.is_single() {
         println!("BaroBoard 已经在运行");
         return;
     }
-
-    let mut tray = TrayItem::new("Tray Example", IconSource::RawIcon(4545)).unwrap();
-    
 
     // 创建事件循环
     let event_loop = winit::event_loop::EventLoop::<event::UserEvent>::with_user_event()
@@ -62,26 +64,27 @@ fn main() {
                 match event.event_type {
                     EventType::KeyPress(key) => {
                         if let Key::Alt = key {
-                            // 检查是否在上次Alt释放后的1.5秒内
+                            // 检查是否在上次Alt释放后的限定秒内
                             let mut should_show = false;
                             {
                                 let last_release = last_alt_release;
                                 if let Some(time) = last_release {
                                     let elapsed = time.elapsed();
-                                    if elapsed <= Duration::from_millis(1500) {
+                                    if elapsed <= Duration::from_millis(DOUBLE_ALT_COOLDOWN) {
+                                        println!("Double Alt Detected, delay {:?}", elapsed);
                                         should_show = true;
                                     }
                                 }
                             }
                             
+                            // 如果应该显示，则发送事件
                             if should_show {
-                                println!("Double Alt Detected at {:?}", Instant::now());
                                 *called_clone_loop.lock().unwrap() = true;
                                 proxy_clone_loop
                                     .send_event(event::UserEvent::ShowWindow)
                                     .unwrap();
-                                // 设置冷却期，1.5秒内忽略Alt释放
-                                cooldown_until = Some(Instant::now() + Duration::from_millis(1500));
+                                // 设置冷却期，限定秒内忽略Alt释放
+                                cooldown_until = Some(Instant::now() + Duration::from_millis(DOUBLE_ALT_COOLDOWN));
                             }
                         } else {
                             // println!("其他键释放");
@@ -115,6 +118,7 @@ fn main() {
 
     let winit_window_builder = winit::window::WindowAttributes::default()
         .with_resizable(false)
+        .with_visible(false)
         .with_inner_size(winit::dpi::LogicalSize {
             width: 800.0,
             height: 500.0,
@@ -126,6 +130,9 @@ fn main() {
     let proxy_clone_tray = proxy.clone();
     let called_clone_tray = called.clone();
 
+    // 创建托盘图标
+    let mut tray = TrayItem::new("Tray Example", IconSource::RawIcon(4545)).unwrap();
+    
     tray.add_menu_item("显示工具箱", move || {
         *called_clone_tray.lock().unwrap() = true;
         proxy_clone_tray
@@ -138,19 +145,31 @@ fn main() {
     }).unwrap();
 
     // 创建主应用程序
+    let proxy_clone_app = proxy.clone();
     let mut app = glow_app::GlowApp::new(
         winit_window_builder,
-        proxy,
+        proxy.clone(),
         Box::new(move |egui_ctx| {
+            egui_ctx.send_viewport_cmd(egui::viewport::ViewportCommand::EnableButtons {
+                close: true,
+                minimized: true,
+                maximize: false,
+            });
             // 安装图片加载器，允许egui加载和显示图片
             egui_extras::install_image_loaders(egui_ctx);
             // 设置自定义字体，支持中文显示
             setup_custom_fonts(egui_ctx);
 
-            Box::new(MyApp::new(called.clone()))
+            Box::new(MyApp::new(
+                called.clone(),
+                proxy_clone_app.clone()
+            ))
         }),
     );
 
+    // 在这里控制是否在打开程序的时候就显示
+    #[cfg(debug_assertions)]
+    proxy.send_event(event::UserEvent::ShowWindow).unwrap();
     // 启动事件循环，这通常是阻塞的，会一直运行直到应用程序关闭
     // 事件循环会不断处理输入事件、UI更新和渲染，这是GUI应用程序的主要执行模式
     event_loop.run_app(&mut app).expect("failed to run app");
@@ -158,7 +177,7 @@ fn main() {
 
 
 //自定义字体
-pub fn setup_custom_fonts(ctx: &egui::Context) {
+fn setup_custom_fonts(ctx: &egui::Context) {
     // 创建一个默认的字体定义对象
     let mut fonts = egui::FontDefinitions::default();
 

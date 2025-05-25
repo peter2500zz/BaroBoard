@@ -9,6 +9,10 @@ use pinyin::ToPinyin;
 
 use crate::my_structs::*;
 
+/// 表示程序链接在列表中的索引位置
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ProgramLinkIndex(usize);
+
 impl MyApp {
     pub fn main_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui)  {        
         // 添加面板的顺序非常重要，影响最终的布局
@@ -18,26 +22,39 @@ impl MyApp {
         .show_inside(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.vertical_centered(|ui| {
-                    ui.heading(&self.title)
-                    .context_menu(|ui| {
-                        if ui.button("添加一个子页面").clicked() {
-                            self.pages.push(
-                                Page::new(
-                                    "新页面".to_string(),
-                                    vec![]
-                                )
-                            );
+                    ui.horizontal_wrapped(|ui| {
+                        
+                        ui.with_layout(egui::Layout::centered_and_justified(egui::Direction::LeftToRight), |ui| {
+                            ui.heading(egui::RichText::new(&self.title));
+                            
+                        });
+                        if self.wont_save {
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                ui.heading(egui::RichText::new("自动保存已禁用").color(egui::Color32::LIGHT_RED))
+                                .on_hover_ui(|ui| {
+                                    ui.heading("为什么无法自动保存？");
+                                    ui.label("当无法正常读取配置文件时，程序会关闭自动保存功能，以防破坏原本的配置文件");
+                                    ui.label("你可以在设置中手动保存");
+                                    ui.label(egui::RichText::new(
+                                        "注意: 不推荐在自动保存禁用的情况下手动保存，这会丢失原先的配置文件。如果可能，请先尝试修复配置文件"
+                                    ).color(egui::Color32::LIGHT_RED));
+                                })
+                                ;
+                            });
                         }
+                    }).response
+                    
+                    .context_menu(|ui| {
+
                         if ui.button("所有快捷方式").clicked() {
-                            println!("{:?}", self.pages);
+                            println!("{:?}", self.program_links);
                         }
                         if ui.button("已缓存的图片").clicked() {
                             println!("{:?}", self.cached_icon);
                         }
 
                         if ui.button("隐藏").clicked() {
-                            let ctx = ctx.clone();
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+                            self.hide_window();
                         }
                     });
                 });
@@ -47,7 +64,11 @@ impl MyApp {
                     let search_text = ui.add(egui::TextEdit::singleline(&mut self.search_text).hint_text("搜索"));
                     // 如果程序被唤起，则请求焦点
                     let mut called_guard = self.called.lock().unwrap();
-                    if *called_guard {
+                    if *called_guard {  // 被呼叫了！
+                        ctx.send_viewport_cmd(egui::viewport::ViewportCommand::Minimized(false));
+                        ctx.send_viewport_cmd(egui::viewport::ViewportCommand::Focus);
+                        // self.edit_mode = false;
+                        self.search_text = "".to_string();
                         search_text.request_focus();
                         *called_guard = false;
                     }
@@ -55,23 +76,31 @@ impl MyApp {
                     // 如果搜索框里有内容，则进行搜索
                     if !self.search_text.is_empty() {
                         // 计算相似度
-                        let mut results: Vec<(ProgramLink, f64)> = self.pages[self.current_page_index].program_links
+                        let mut results: Vec<(ProgramLink, f64)> = if let Some(tag) = self.current_tag.clone() {sort_by_tag(self.program_links.clone(), tag)} else {self.program_links.clone()}
                             .iter()
                             .map(|program_link| {
-                                // 计算多种情况下的相似度得分
-                                let original_score = jaro_winkler(&self.search_text, &program_link.name);
-                                
-                                let pinyin_score = jaro_winkler(
-                                    &self.search_text, 
-                                    &program_link.name.chars().map(|c| {
-                                        c.to_pinyin()
-                                        .map(|p| p.plain().to_string())
-                                        .unwrap_or_else(|| c.to_string())
-                                }).collect::<String>());
-                                
-                                // 取最高分
-                                let max_score = original_score
-                                    .max(pinyin_score);
+                                let max_score = program_link.name.iter().map(|name| {
+                                    // 计算多种情况下的相似度得分
+                                    let original_score = jaro_winkler(&self.search_text, &name);
+                                    let lower_score = jaro_winkler(&self.search_text, &name.to_lowercase());
+
+                                    let pinyin_score = jaro_winkler(
+                                        &self.search_text, 
+                                        &name.chars().map(|c| {
+                                            c.to_pinyin()
+                                            .map(|p| p.plain().to_string())
+                                            .unwrap_or_else(|| c.to_string())
+                                    }).collect::<String>());
+
+                                    // 取最高分
+                                    original_score
+                                        .max(lower_score)
+                                        .max(pinyin_score)
+                                })
+                                .collect::<Vec<f64>>()
+                                .iter()
+                                .cloned()
+                                .fold(0., f64::max);
 
                                 (program_link.clone(), max_score)
                             })
@@ -91,16 +120,17 @@ impl MyApp {
                                 // 这一步的作用是，如果用户使用Tab聚焦到按钮时，不会触发搜索框的lost_focus，避免重复触发
                                 search_text.lost_focus()
                             {
-                                println!("选中的程序: {} 权重: {}", results[0].0.name, results[0].1);
-                                match Command::new(&results[0].0.run_command).spawn() {
-                                    Ok(_) => println!("{} 运行成功", results[0].0.name),
+                                
+                                println!("选中的程序: {} 权重: {}", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string()), results[0].1);
+                                match Command::new(&self.sorted_program_links[0].run_command).spawn() {
+                                    Ok(_) => println!("{} 运行成功", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string())),
                                     Err(e) => {
-                                        println!("{} 运行失败: {}", results[0].0.name, e);
+                                        println!("{} 运行失败: {}", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string()), e);
                                     },
                                 }
                                 self.search_text = "".to_string();
-                                println!("关闭窗口");
-                                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+
+                                self.hide_window();
                             }
                             // }
                             
@@ -119,10 +149,15 @@ impl MyApp {
         // .width_range(80.0..=200.0)
         .show_inside(ui, |ui| {
             ui.vertical_centered(|ui| {
-                ui.heading("分类");
+                ui.heading("标签");
             });
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.side_bar(ui);
+
+                // 版本号水印
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::BOTTOM), |ui| {
+                    ui.label(egui::RichText::new(crate::PROGRAM_VERSION).weak());
+                });
             });
         });
 
@@ -137,9 +172,10 @@ impl MyApp {
             });
             // });
             egui::ScrollArea::vertical().show(ui, |ui| {
-                self.show_delete_link(ui);
-                self.show_setting_window(ui);
-                self.show_config_save_error(ui);
+                self.show_popup(ui);
+                // self.show_delete_link(ui);
+                // self.show_setting_window(ui);
+                // self.show_config_save_error(ui);
                 self.show_page(ui);
             });
         });
@@ -148,169 +184,261 @@ impl MyApp {
 
     fn show_page(&mut self, ui: &mut egui::Ui) {
         // 显示页面
-        if let Some(page) = self.pages.get(self.current_page_index) {
-            
-            // 如果搜索框里有内容，则使用排序后的程序列表，否则使用页面中的程序列表
-            let chunks: Vec<_> = (if self.search_text.is_empty() {
-                &page.program_links
-            } else {
-                &self.sorted_program_links
-            })
-            // 每次选取6个程序，并显示在同一行
-            .chunks(6).collect();
+        let mut should_save = false;
 
-            if chunks.is_empty() && !self.edit_mode {
-                ui.centered_and_justified(|ui| {
-                    ui.label(
-                        egui::RichText::new("这个页面中还没有任何快捷方式，你可以在编辑模式中创建一个")
-                            .weak()
-                            .size(16.)
-                    );
-                });
-            }
+        // 记录拖拽源和目标位置
+        let mut drag_from = None;
+        let mut drag_to = None;
+        
+        // 如果搜索框里有内容，则使用排序后的程序列表，否则使用页面中的程序列表
+        let display_program_links = if self.search_text.is_empty() {
+            if let Some(tag) = self.current_tag.clone() {sort_by_tag(self.program_links.clone(), tag)} else {self.program_links.clone()}
+        } else {
+            self.sorted_program_links.clone()
+        };
 
-            // 新建链接的按钮
-            let mut show_on_next_line = true;
+        let chunks: Vec<_> = display_program_links.chunks(6).collect();
 
-            // 遍历每个chunk显示
-            for (i, chunk) in chunks.iter().enumerate() {
-                ui.horizontal(|ui| {
-                    for (link_index, program) in (*chunk).iter().enumerate() {
-                        // 图标与名称
-                        ui.vertical(|ui| {
-                            // 注册对icon_path的缓存 - 使用entry API优化
-                            self.cached_icon
-                                .entry(program.icon_path.clone())
-                                .or_insert_with(HashSet::new)
-                                .insert(program.uuid.clone());
-                            
-                            let response = ui.add_sized(
+        if chunks.is_empty() && !self.edit_mode {
+            ui.centered_and_justified(|ui| {
+                ui.label(
+                    egui::RichText::new(
+                        if self.search_text.is_empty() {"这里还没有任何快捷方式！不过你可以在编辑模式中创建一个"
+                        } else {
+                            "没有找到任何快捷方式"
+                        })
+                        .weak()
+                        .size(16.)
+                );
+            });
+        }
+
+        // 新建链接的按钮
+        let mut show_on_next_line = true;
+
+        // 遍历每个chunk显示
+        for (i, chunk) in chunks.iter().enumerate() {
+            ui.horizontal(|ui| {
+                for (link_index, program) in (*chunk).iter().enumerate() {
+                    // 计算当前项目在整个列表中的绝对索引
+                    let absolute_index = i * 6 + link_index;
+                    
+                    // 图标与名称
+                    ui.vertical(|ui| {
+                        // 注册对icon_path的缓存 - 使用entry API优化
+                        self.cached_icon
+                            .entry(program.icon_path.clone())
+                            .or_insert_with(HashSet::new)
+                            .insert(program.uuid.clone());
+                        
+                        let btn = Box::new(|ui: &mut egui::Ui| {
+                            if self.edit_mode {
+                                ui.style_mut().visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
+                            };
+                            ui.add_sized(
                                 egui::vec2(96.0, 96.0),
                                 egui::ImageButton::new(format!("file://{}", &program.icon_path))
-                            );
-                            
-                            if !self.link_popups.link_config.called {
-                                if self.edit_mode && response.clicked() {
-                                    // 打开设置窗口
-                                    self.link_popups.link_config.config_existing_link(LinkPosition::new(self.current_page_index, link_index), program);
+                            )
+                        });
 
+                        let enable_drag = self.edit_mode && !self.popups.called;
+
+                        let response = if enable_drag {
+                            // 在编辑模式下启用拖拽
+                            ui.dnd_drag_source(egui::Id::new(&program.uuid), ProgramLinkIndex(absolute_index), |ui| {
+                                // 绘制图标按钮
+                                btn(ui)
+                            }).response
+                        } else {
+                            btn(ui)
+                        };
+                        
+                        // 检查是否有拖拽悬停在当前项目上
+                        if enable_drag {
+                            if let (Some(pointer), Some(_)) = (
+                                ui.input(|i| i.pointer.interact_pos()),
+                                response.dnd_hover_payload::<ProgramLinkIndex>(),
+                            ) {
+                                // 获取当前项目的矩形区域，用于绘制视觉提示
+                                let rect = response.rect;
+                                
+                                // 创建线条样式
+                                let stroke = egui::Stroke::new(2.0, egui::Color32::BLACK);
+                                
+                                // 根据鼠标位置确定插入位置
+                                if pointer.x < rect.center().x {
+                                    // 在左侧绘制垂直线
+                                    ui.painter().vline(rect.left(), rect.y_range(), stroke);
                                 } else {
-                                    if response.clicked() {
+                                    // 在右侧绘制垂直线
+                                    ui.painter().vline(rect.right(), rect.y_range(), stroke);
+                                }
+                                
+                                // 检查是否释放了拖拽
+                                if let Some(dragged_index) = response.dnd_release_payload::<ProgramLinkIndex>() {
+                                    // 记录拖拽源和目标
+                                    drag_from = Some(dragged_index.0);
+                                    
+                                    // 根据鼠标位置确定是插入到左侧还是右侧
+                                    let target_index = if pointer.x < rect.center().x {
+                                        absolute_index
+                                    } else {
+                                        absolute_index + 1
+                                    };
+                                    
+                                    drag_to = Some(target_index);
+
+                                    println!("由于拖拽 尝试保存");
+                                    should_save = true;
+                                }
+                            }
+                        }
+                        
+                        if !self.popups.called {
+                            if self.edit_mode && response.clicked() {
+                                // 打开设置窗口
+                                self.popups.config_existing_link(LinkPosition::new(link_index), program);
+
+                            } else {
+                                if response.clicked() {
+                                    match Command::new(&program.run_command).spawn() {
+                                        Ok(_) => println!("{} 运行成功", program.name.get(0).unwrap_or(&"".to_string())),
+                                        Err(e) => {
+                                            println!("{} 运行失败: {}", program.name.get(0).unwrap_or(&"".to_string()), e);
+                                            
+                                        },
+                                    }
+                                }
+                                
+                                // 右键点击图标，显示上下文菜单
+                                response.context_menu(|ui| {
+                                    // 显示名称
+                                    ui.horizontal(|ui| {
+                                        ui.label(if program.name.is_empty() {
+                                            egui::RichText::new("未命名").weak()
+                                        } else {
+                                            egui::RichText::new(&program.name.get(0).unwrap_or(&"".to_string()).to_owned())
+                                        });
+                                    });
+
+                                    ui.separator();
+        
+                                    if ui.button("运行")
+                                    .clicked() {
                                         match Command::new(&program.run_command).spawn() {
-                                            Ok(_) => println!("{} 运行成功", program.name),
+                                            Ok(_) => println!("{} 运行成功", program.name.get(0).unwrap_or(&"".to_string())),
                                             Err(e) => {
-                                                println!("{} 运行失败: {}", program.name, e);
+                                                println!("{} 运行失败: {}", program.name.get(0).unwrap_or(&"".to_string()), e);
                                                 
                                             },
                                         }
+
+                                        ui.close_menu();
+                                    }
+                                    if ui.button("编辑").clicked() {
+                                        self.popups.config_existing_link(LinkPosition::new(link_index), program);
+                                        ui.close_menu();
                                     }
                                     
-                                    // 右键点击图标，显示上下文菜单
-                                    response.context_menu(|ui| {
-                                        // 显示名称
-                                        ui.horizontal(|ui| {
-                                            ui.label(if program.name.is_empty() {
-                                                egui::RichText::new("未命名").weak()
-                                            } else {
-                                                egui::RichText::new(&program.name)
-                                            });
-                                        });
-
-                                        ui.separator();
-            
-                                        if ui.button("运行")
-                                        .clicked() {
-                                            match Command::new(&program.run_command).spawn() {
-                                                Ok(_) => println!("{} 运行成功", program.name),
-                                                Err(e) => {
-                                                    println!("{} 运行失败: {}", program.name, e);
-                                                    
-                                                },
-                                            }
-
-                                            ui.close_menu();
-                                        }
-                                        if ui.button("编辑").clicked() {
-                                            self.link_popups.link_config.config_existing_link(LinkPosition::new(self.current_page_index, link_index), program);
-                                            ui.close_menu();
-                                        }
+                                    if ui.button("删除")
+                                    .clicked() {
+                                        self.popups.delete_link(LinkPosition::new(link_index));
+                                        // self.delete_link(link_index);
                                         
-                                        if ui.button("删除")
-                                        .clicked() {
-                                            
-                                            self.link_popups.link_delete.delete_link(self.current_page_index, link_index);
-                                            
-                                            ui.close_menu();
-                                        }
-                                    });
-                                }
+                                        ui.close_menu();
+                                    }
+                                });
+                            }
+                        };
+                        
+                        // 快捷方式名称Label，最大宽度为96px，仅限一行
+                        ui.allocate_ui(egui::Vec2 { x: 96.0, y: 96.0 }, |ui| {
+                            let mut job = egui::text::LayoutJob::single_section(program.name.get(0).unwrap_or(&"".to_string()).to_owned(), 
+                                egui::TextFormat {
+                                ..Default::default()
+                            });
+                            job.wrap = egui::text::TextWrapping {
+                                max_rows: 1,
+                                break_anywhere: true,
+                                overflow_character: Some('…'),
+                                ..Default::default()
                             };
                             
-                            // 快捷方式名称Label，最大宽度为96px，仅限一行
-                            ui.allocate_ui(egui::Vec2 { x: 96.0, y: 96.0 }, |ui| {
-                                let mut job = egui::text::LayoutJob::single_section(program.name.to_owned(), 
-                                    egui::TextFormat {
-                                    ..Default::default()
-                                });
-                                job.wrap = egui::text::TextWrapping {
-                                    max_rows: 1,
-                                    break_anywhere: true,
-                                    overflow_character: Some('…'),
-                                    ..Default::default()
-                                };
-                                
-                                ui.label(job);
-                            });
+                            ui.label(job);
                         });
-                    };
-
-                    // 只有在不是最后一个chunk时才添加间隔
-                    if i == chunks.len() - 1 && chunk.len() < 6 && self.edit_mode {
-                        show_on_next_line = false;
-                        ui.vertical(|ui| {
-                            let response = ui.add_sized(
-                                egui::vec2(96.0, 96.0),
-                                egui::Button::new(egui::RichText::new("➕").size(48.))
-                            );
-                            if response.clicked() && !self.link_popups.link_config.called  {
-                                self.link_popups.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
-                            }
-            
-                        });
-                    }
-                });
-                // if i != chunks.len() - 1 {
-                // } 
-                if i != chunks.len() - 1 || (show_on_next_line && self.edit_mode) {
-                    ui.horizontal(|ui| {
-                        ui.label("");
                     });
-                }
-                if i == chunks.len() - 1 && show_on_next_line && self.edit_mode {
+                };
+
+                // 只有在不是最后一个chunk时才添加间隔
+                if i == chunks.len() - 1 && chunk.len() < 6 && self.edit_mode {
+                    show_on_next_line = false;
                     ui.vertical(|ui| {
                         let response = ui.add_sized(
                             egui::vec2(96.0, 96.0),
                             egui::Button::new(egui::RichText::new("➕").size(48.))
                         );
-                        if response.clicked() && !self.link_popups.link_config.called  {
-                            self.link_popups.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
+                        if response.clicked() && !self.popups.called  {
+                            self.popups.config_new_link();
                         }
+        
                     });
                 }
-            };
-
-            if chunks.is_empty() && self.edit_mode {
+            });
+            // if i != chunks.len() - 1 {
+            // } 
+            if i != chunks.len() - 1 || (show_on_next_line && self.edit_mode) {
+                ui.horizontal(|ui| {
+                    ui.label("");
+                });
+            }
+            if i == chunks.len() - 1 && show_on_next_line && self.edit_mode {
                 ui.vertical(|ui| {
                     let response = ui.add_sized(
                         egui::vec2(96.0, 96.0),
                         egui::Button::new(egui::RichText::new("➕").size(48.))
                     );
-                    if response.clicked() && !self.link_popups.link_config.called  {
-                        self.link_popups.link_config.config_new_link(LinkPosition::new(self.current_page_index, 0));
+                    if response.clicked() && !self.popups.called  {
+                        self.popups.config_new_link();
                     }
                 });
             }
+        };
+
+        if chunks.is_empty() && self.edit_mode {
+            ui.vertical(|ui| {
+                let response = ui.add_sized(
+                    egui::vec2(96.0, 96.0),
+                    egui::Button::new(egui::RichText::new("➕").size(48.))
+                );
+                if response.clicked() && !self.popups.called  {
+                    self.popups.config_new_link();
+                }
+            });
+        }
+        
+        // 处理拖拽重排
+        if let (Some(from_idx), Some(to_idx)) = (drag_from, drag_to) {
+            if from_idx != to_idx && self.search_text.is_empty() {
+                // 获取对当前页面的可变引用
+                // 先移除源项目
+                let program = self.program_links.remove(from_idx);
+                
+                // 调整目标索引（如果源在目标之前）
+                let adjusted_to_idx = if from_idx < to_idx {
+                    to_idx - 1
+                } else {
+                    to_idx
+                };
+                
+                // 插入到目标位置
+                self.program_links.insert(adjusted_to_idx, program);
+                
+            }
         }
         // ctx.texture_ui(ui);
+        
+        if should_save {
+            self.save_conf();
+        }
     }
 }
