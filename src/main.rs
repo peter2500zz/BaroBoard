@@ -15,8 +15,6 @@ use window::{event, glow_app};
 use my_structs::{MyApp, DOUBLE_ALT_COOLDOWN};
 
 
-
-
 fn main() {
     let instance = SingleInstance::new("BaroBoard").unwrap();
     

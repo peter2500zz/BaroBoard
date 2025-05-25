@@ -24,6 +24,10 @@ pub enum PopupType {
     CannotSave,
     TagDelete,
     TagNew,
+
+    // 配置文件错误
+    ConfigTooOld,
+    ConfigFormatError,
 }
 
 pub struct Popups {
@@ -100,6 +104,16 @@ impl Popups {
         self.tag_new = "".to_string();
         self.popup_type = Some(PopupType::TagNew);
     }
+
+    pub fn config_file_too_old(&mut self) {
+        self.called = true;
+        self.popup_type = Some(PopupType::ConfigTooOld);
+    }
+
+    pub fn config_file_format_error(&mut self) {
+        self.called = true;
+        self.popup_type = Some(PopupType::ConfigFormatError);
+    }
 }
 
 
@@ -112,11 +126,67 @@ impl MyApp {
                     PopupType::LinkDelete => self.show_delete_link(ui),
                     PopupType::TagDelete => self.show_delete_tag(ui),
                     PopupType::TagNew => self.show_new_tag(ui),
+                    PopupType::ConfigTooOld => self.show_config_file_too_old(ui),
                     // PopupType::Info => self.popups.info.show(ui),
                     _ => {}
                 }
             }
         // }
+    }
+
+    fn show_config_file_too_old(&mut self, ui: &mut egui::Ui) {
+        let mut show = self.popups.called.clone();
+        let mut should_close = false;
+        let mut should_force_read = false;
+
+        // 删除快捷方式弹窗
+        egui::Window::new("配置文件版本过旧")
+        .title_bar(false)
+        .collapsible(false)
+        .resizable(false)
+        .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+        .fade_in(true)
+        .fade_out(true)
+        .open(&mut show)
+
+        .show(ui.ctx(), |ui| {
+            ui.vertical_centered(|ui| {
+                ui.heading("配置文件版本过旧");
+                ui.label(
+                    "仍然尝试读取？"
+                );
+                
+                ui.separator();
+                
+                ui.with_layout(egui::Layout {
+                    cross_align: egui::Align::RIGHT,
+                    ..Default::default()
+                }, |ui| {
+                    ui.horizontal(|ui| {
+                        if ui.button(egui::RichText::new("是").color(egui::Color32::RED))
+                        .clicked() {
+                            should_force_read = true;
+                            should_close = true;
+                        }
+                        if ui.button("否").clicked() {
+                            should_close = true;
+                        }
+                    });
+                });
+            });
+        });
+
+
+        if (!show && !should_close && self.popups.called) || should_close {
+            println!("*你* 关闭了对吧？");
+            // 用户关闭
+            if should_force_read {
+                println!("强制读取");
+                self.force_read_config();
+            }
+
+            self.popups.called = false;
+        }
     }
 
     fn show_new_tag(&mut self, ui: &mut egui::Ui) {
@@ -176,7 +246,9 @@ impl MyApp {
         if (!show && !should_close && self.popups.called) || should_close {
             println!("*你* 关闭了对吧？");
             // 用户关闭
-            self.popups.save_conf(self.program_links.clone(), self.tags.clone());
+            if should_save {
+                self.popups.save_conf(self.program_links.clone(), self.tags.clone());
+            }
 
             self.popups.called = false;
         }
@@ -236,7 +308,9 @@ impl MyApp {
         if (!show && !should_close && self.popups.called) || should_close {
             println!("*你* 关闭了对吧？");
             // 用户关闭
-            self.popups.save_conf(self.program_links.clone(), self.tags.clone());
+            if should_save {
+                self.popups.save_conf(self.program_links.clone(), self.tags.clone());
+            }
 
             self.popups.called = false;
         }
@@ -310,9 +384,28 @@ impl MyApp {
         if (!show && !should_close && self.popups.called) || should_close {
             println!("*你* 关闭了对吧？");
             // 用户关闭
-            self.popups.save_conf(self.program_links.clone(), self.tags.clone());
+            if should_save {
+                self.popups.save_conf(self.program_links.clone(), self.tags.clone());
+            }
 
             self.popups.called = false;
         }
+    }
+}
+
+
+impl MyApp {
+    fn force_read_config(&mut self) {
+        let (program_links, tags) = match serde_json::from_value::<crate::pages::popups::link::save::LinkConfigSchema>(crate::pages::popups::link::save::load_conf(".links.json").unwrap()) {
+            Ok(links_config) => (links_config.program_links, links_config.tags),
+            Err(e) => {
+                println!("读取配置文件失败: {}", e);
+                self.popups.config_file_format_error();
+                (Vec::new(), HashSet::new())
+            }
+        };
+
+        self.program_links = program_links;
+        self.tags = tags;
     }
 }

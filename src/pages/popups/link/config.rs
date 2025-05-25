@@ -234,21 +234,19 @@ impl MyApp {
 
         if (!show && !should_close && self.popups.called) || should_close {
             // 只有在窗口还是打开状态时才执行清理
-            if self.popups.called {
-                println!("*你* 关闭了对吧？");
-                // 用户关闭
-                if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
-                    if !should_save {
-                        self.icon_will_clean.push(icon_path);
-                    }
+            println!("*你* 关闭了对吧？");
+            // 用户关闭
+            if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
+                if !should_save {
+                    self.icon_will_clean.push(icon_path);
                 }
-                
-                if should_save {
-                    self.popups.save_conf(self.program_links.clone(), self.tags.clone());
-                }
-
-                self.popups.called = false;
             }
+            
+            if should_save {
+                self.popups.save_conf(self.program_links.clone(), self.tags.clone());
+            }
+
+            self.popups.called = false;
         }
     }
 }

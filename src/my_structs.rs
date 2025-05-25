@@ -90,12 +90,33 @@ impl MyApp {
         called: Arc<Mutex<bool>>,
         proxy: winit::event_loop::EventLoopProxy<UserEvent>
     ) -> Self {
-        let (program_links, tags) = match crate::pages::popups::link::save::load_conf(".links.json") {
+        let mut popup = Popups::new();
+
+        let links_config = crate::pages::popups::link::save::load_conf(".links.json");
+
+        let (program_links, tags) =  match links_config {
             Ok(links_config) => {
-                (links_config.program_links, links_config.tags)
+                let version = links_config.get("version")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as u32;
+                
+                if version < crate::pages::popups::link::save::CURRENT_VERSION {
+                    popup.config_file_too_old();
+                    (Vec::new(), HashSet::new())
+                } else {
+                    // 尝试反序列化为正确的结构体
+                    match serde_json::from_value::<crate::pages::popups::link::save::LinkConfigSchema>(links_config) {
+                        Ok(config) => (config.program_links, config.tags),
+                        Err(_) => {
+                            popup.config_file_format_error();
+                            (Vec::new(), HashSet::new())
+                        }
+                    }
+                }
             },
             Err(e) => {
                 println!("{}", e);
+                popup.config_file_format_error();
                 (Vec::new(), HashSet::new())
             },
         };
@@ -109,7 +130,7 @@ impl MyApp {
             title: "BaroBoard 工具箱".to_string(),
             search_text: "".to_string(),
             sorted_program_links: Vec::new(),
-            popups: Popups::new(),
+            popups: popup,
             cached_icon: HashMap::new(),
             icon_will_clean: Vec::new(),
             called: called,
