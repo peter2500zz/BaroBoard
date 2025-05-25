@@ -15,6 +15,11 @@ use window::{event, glow_app};
 use my_structs::{MyApp, DOUBLE_ALT_COOLDOWN};
 
 
+pub const PROGRAM_VERSION: &str = "v0.1.2";
+pub const CONFIG_FILE_VERSION: u32 = 3;
+pub const CONFIG_FILE_NAME: &str = ".links.json";
+
+
 fn main() {
     let instance = SingleInstance::new("BaroBoard").unwrap();
     

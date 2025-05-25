@@ -493,7 +493,7 @@ impl MyApp {
 
 impl MyApp {
     fn config_auto_fix(&mut self) {
-        let config_file = crate::pages::popups::link::save::load_conf(".links.json");
+        let config_file = crate::pages::popups::link::save::load_conf(crate::CONFIG_FILE_NAME);
 
         match config_file {
             Ok(links_config) => {
@@ -590,7 +590,7 @@ impl MyApp {
     }
 
     fn force_read_config(&mut self) {
-        let (program_links, tags) = match serde_json::from_value::<crate::pages::popups::link::save::LinkConfigSchema>(crate::pages::popups::link::save::load_conf(".links.json").unwrap()) {
+        let (program_links, tags) = match serde_json::from_value::<crate::pages::popups::link::save::LinkConfigSchema>(crate::pages::popups::link::save::load_conf(crate::CONFIG_FILE_NAME).unwrap()) {
             Ok(links_config) => (links_config.program_links, links_config.tags),
             Err(e) => {
                 println!("读取配置文件失败: {}", e);

@@ -4,9 +4,6 @@ use std::collections::HashSet;
 
 use crate::my_structs::*;
 
-
-pub const CURRENT_VERSION: u32 = 3;
-
 #[derive(Serialize, Deserialize)]
 pub struct LinkConfigSchema {
     pub version: u32,
@@ -17,7 +14,7 @@ pub struct LinkConfigSchema {
 impl Default for LinkConfigSchema {
     fn default() -> Self {
         Self {
-            version: CURRENT_VERSION,
+            version: crate::CONFIG_FILE_VERSION,
             tags: HashSet::new(),
             program_links: Vec::new(),
         }
@@ -25,13 +22,13 @@ impl Default for LinkConfigSchema {
 }
 
 pub fn save_conf(program_links: Vec<ProgramLink>, tags: HashSet<String>) -> Result<(), std::io::Error> {
-    save_conf_to_path(program_links, tags, ".links.json")
+    save_conf_to_path(program_links, tags, crate::CONFIG_FILE_NAME)
 }
 
 
 pub fn save_conf_to_path(program_links: Vec<ProgramLink>, tags: HashSet<String>, path: &str) -> Result<(), std::io::Error> {
     let links_config = LinkConfigSchema {
-        version: CURRENT_VERSION,
+        version: crate::CONFIG_FILE_VERSION,
         tags: tags,
         program_links: program_links,
     };

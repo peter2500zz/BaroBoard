@@ -7,9 +7,6 @@ use crate::pages::popups::Popups;
 use crate::window::{self, event::UserEvent};
 
 
-const CONFIG_FILE_NAME: &str = ".links.json";
-
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProgramLink {
     pub name: Vec<String>,
@@ -99,7 +96,7 @@ impl MyApp {
     ) -> Self {
         let mut popup = Popups::new();
 
-        let links_config = crate::pages::popups::link::save::load_conf(CONFIG_FILE_NAME);
+        let links_config = crate::pages::popups::link::save::load_conf(crate::CONFIG_FILE_NAME);
 
         let (program_links, tags) =  match links_config {
             Ok(links_config) => {
@@ -107,7 +104,8 @@ impl MyApp {
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0) as u32;
                 
-                if version < crate::pages::popups::link::save::CURRENT_VERSION {
+                if version < crate::CONFIG_FILE_VERSION {
+                    proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
                     popup.config_file_too_old();
                     (Vec::new(), HashSet::new())
                 } else {
@@ -115,6 +113,7 @@ impl MyApp {
                     match serde_json::from_value::<crate::pages::popups::link::save::LinkConfigSchema>(links_config) {
                         Ok(config) => (config.program_links, config.tags),
                         Err(_) => {
+                            proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
                             popup.config_file_format_error();
                             (Vec::new(), HashSet::new())
                         }
@@ -124,7 +123,8 @@ impl MyApp {
             Err(e) => {
                 println!("{}", e);
                 // 检查文件是否存在
-                if std::path::Path::new(CONFIG_FILE_NAME).exists() {
+                if std::path::Path::new(crate::CONFIG_FILE_NAME).exists() {
+                    proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
                     popup.config_file_format_error();
                 }
                 (Vec::new(), HashSet::new())

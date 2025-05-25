@@ -153,6 +153,11 @@ impl MyApp {
             });
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.side_bar(ui);
+
+                // 版本号水印
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::BOTTOM), |ui| {
+                    ui.label(egui::RichText::new(crate::PROGRAM_VERSION).weak());
+                });
             });
         });
 
