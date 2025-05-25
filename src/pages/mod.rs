@@ -22,7 +22,28 @@ impl MyApp {
         .show_inside(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.vertical_centered(|ui| {
-                    ui.heading(&self.title)
+                    ui.horizontal_wrapped(|ui| {
+                        
+                        ui.with_layout(egui::Layout::centered_and_justified(egui::Direction::LeftToRight), |ui| {
+                            ui.heading(egui::RichText::new(&self.title));
+                            
+                        });
+                        if self.wont_save {
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                ui.heading(egui::RichText::new("自动保存已禁用").color(egui::Color32::LIGHT_RED))
+                                .on_hover_ui(|ui| {
+                                    ui.heading("为什么无法自动保存？");
+                                    ui.label("当无法正常读取配置文件时，程序会关闭自动保存功能，以防破坏原本的配置文件");
+                                    ui.label("你可以在设置中手动保存");
+                                    ui.label(egui::RichText::new(
+                                        "注意: 不推荐在自动保存禁用的情况下手动保存，这会丢失原先的配置文件。如果可能，请先尝试修复配置文件"
+                                    ).color(egui::Color32::LIGHT_RED));
+                                })
+                                ;
+                            });
+                        }
+                    }).response
+                    
                     .context_menu(|ui| {
 
                         if ui.button("所有快捷方式").clicked() {
@@ -412,7 +433,7 @@ impl MyApp {
         // ctx.texture_ui(ui);
         
         if should_save {
-            self.popups.save_conf(self.program_links.clone(), self.tags.clone());
+            self.save_conf();
         }
     }
 }

@@ -6,29 +6,33 @@ use std::sync::{Arc, Mutex};
 use crate::pages::popups::Popups;
 use crate::window::{self, event::UserEvent};
 
+
+const CONFIG_FILE_NAME: &str = ".links.json";
+
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProgramLink {
     pub name: Vec<String>,
     pub icon_path: String,
     pub run_command: String,
-    pub tags: Vec<String>,
+    pub tags: HashSet<String>,
     pub uuid: String,
 }
 
 impl Default for ProgramLink {
     fn default() -> Self {
         Self {
-            name: vec!["".to_string()],
+            name: Vec::new(),
             icon_path: "".to_string(),
             run_command: "".to_string(),
-            tags: Vec::new(),
+            tags: HashSet::new(),
             uuid: Uuid::new_v4().to_string(),
         }
     }
 }
 
 impl ProgramLink {
-    pub fn new(name: Vec<String>, icon_path: String, run_command: String, tags: Vec<String>) -> Self {
+    pub fn new(name: Vec<String>, icon_path: String, run_command: String, tags: HashSet<String>) -> Self {
         Self {
             name: name,
             icon_path: icon_path,
@@ -71,6 +75,9 @@ pub struct MyApp {
     pub title: String,
     pub search_text: String,
     pub sorted_program_links: Vec<ProgramLink>,
+
+    // 停止保存模式
+    pub wont_save: bool,
     
     // 设置相关
     pub popups: Popups,
@@ -92,7 +99,7 @@ impl MyApp {
     ) -> Self {
         let mut popup = Popups::new();
 
-        let links_config = crate::pages::popups::link::save::load_conf(".links.json");
+        let links_config = crate::pages::popups::link::save::load_conf(CONFIG_FILE_NAME);
 
         let (program_links, tags) =  match links_config {
             Ok(links_config) => {
@@ -116,7 +123,10 @@ impl MyApp {
             },
             Err(e) => {
                 println!("{}", e);
-                popup.config_file_format_error();
+                // 检查文件是否存在
+                if std::path::Path::new(CONFIG_FILE_NAME).exists() {
+                    popup.config_file_format_error();
+                }
                 (Vec::new(), HashSet::new())
             },
         };
@@ -135,6 +145,7 @@ impl MyApp {
             icon_will_clean: Vec::new(),
             called: called,
             edit_mode: false,
+            wont_save: false,
         }
     }
 

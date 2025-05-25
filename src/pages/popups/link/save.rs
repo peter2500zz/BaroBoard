@@ -14,6 +14,16 @@ pub struct LinkConfigSchema {
     pub program_links: Vec<ProgramLink>,
 }
 
+impl Default for LinkConfigSchema {
+    fn default() -> Self {
+        Self {
+            version: CURRENT_VERSION,
+            tags: HashSet::new(),
+            program_links: Vec::new(),
+        }
+    }
+}
+
 pub fn save_conf(program_links: Vec<ProgramLink>, tags: HashSet<String>) -> Result<(), std::io::Error> {
     save_conf_to_path(program_links, tags, ".links.json")
 }

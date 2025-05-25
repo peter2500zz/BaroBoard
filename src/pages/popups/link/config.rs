@@ -236,6 +236,8 @@ impl MyApp {
             // 只有在窗口还是打开状态时才执行清理
             println!("*你* 关闭了对吧？");
             // 用户关闭
+            self.popups.called = false;
+            
             if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
                 if !should_save {
                     self.icon_will_clean.push(icon_path);
@@ -243,10 +245,8 @@ impl MyApp {
             }
             
             if should_save {
-                self.popups.save_conf(self.program_links.clone(), self.tags.clone());
+                self.save_conf();
             }
-
-            self.popups.called = false;
         }
     }
 }
