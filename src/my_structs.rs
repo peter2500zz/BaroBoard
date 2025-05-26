@@ -16,6 +16,12 @@ pub struct ProgramLink {
     pub run_command: String,
     pub arguments: Vec<String>,
     pub tags: HashSet<String>,
+
+    // 高级内容
+    pub is_admin: bool,
+    pub is_new_window: bool,
+
+     // 自动生成
     pub uuid: String,
 }
 
@@ -27,19 +33,25 @@ impl Default for ProgramLink {
             run_command: "".to_string(),
             arguments: Vec::new(),
             tags: HashSet::new(),
+
+            is_admin: false,
+            is_new_window: false,
+
             uuid: Uuid::new_v4().to_string(),
         }
     }
 }
 
 impl ProgramLink {
-    pub fn new(name: Vec<String>, icon_path: String, run_command: String, argument: Vec<String>, tags: HashSet<String>) -> Self {
+    pub fn new(name: Vec<String>, icon_path: String, run_command: String, argument: Vec<String>, tags: HashSet<String>, is_admin: bool, is_new_window: bool) -> Self {
         Self {
             name: name,
             icon_path: icon_path,
             run_command: run_command,
             arguments: argument,
             tags: tags,
+            is_admin: is_admin,
+            is_new_window: is_new_window,
             ..Default::default()
         }
     }
@@ -170,17 +182,74 @@ impl MyApp {
         // 解析命令字符串，分离程序名和参数
         let command = program_link.run_command;
         let args = program_link.arguments;
+        let is_admin = program_link.is_admin;
+        let is_new_window = program_link.is_new_window;
+
+        let program_name = program_link.name.get(0);
         
         if command.is_empty() {
-            println!("{} 运行失败: 命令为空", program_link.name.get(0).unwrap_or(&"".to_string()));
+            println!("{} 运行失败: 命令为空", program_name.unwrap_or(&"".to_string()));
             return;
         }
 
-        match Command::new(command).args(args).spawn() {
-            Ok(_) => println!("{} 运行成功", program_link.name.get(0).unwrap_or(&"".to_string())),
-            Err(e) => {
-                println!("{} 运行失败: {}", program_link.name.get(0).unwrap_or(&"".to_string()), e);
-            },
+        #[cfg(target_os = "windows")]
+        {
+            // 根据不同的运行模式选择不同的执行方式
+            let result = match (is_admin, is_new_window) {
+                // 管理员权限 + 新窗口
+                (true, true) => {
+                    let mut ps_command = format!(
+                        "Start-Process -FilePath '{}' -Verb RunAs -WindowStyle Normal",
+                        command.replace("'", "''")
+                    );
+                    if !args.is_empty() {
+                        let args_str = args.join(" ");
+                        ps_command.push_str(&format!(" -ArgumentList '{}'", args_str.replace("'", "''")));
+                    }
+                    
+                    Command::new("powershell")
+                        .args(["-Command", &ps_command])
+                        .spawn()
+                },
+                // 仅管理员权限
+                (true, false) => {
+                    let mut ps_command = format!(
+                        "Start-Process -FilePath '{}' -Verb RunAs -WindowStyle Hidden -Wait",
+                        command.replace("'", "''")
+                    );
+                    if !args.is_empty() {
+                        let args_str = args.join(" ");
+                        ps_command.push_str(&format!(" -ArgumentList '{}'", args_str.replace("'", "''")));
+                    }
+                    
+                    Command::new("powershell")
+                        .args(["-Command", &ps_command])
+                        .spawn()
+                },
+                // 仅新窗口
+                (false, true) => {
+                    let mut cmd_args = vec!["/c", "start", "cmd", "/c"];
+                    cmd_args.push(&command);
+                    cmd_args.extend(args.iter().map(|s| s.as_str()));
+                    
+                    Command::new("cmd")
+                        .args(cmd_args)
+                        .spawn()
+                },
+                // 普通运行
+                (false, false) => {
+                    Command::new(command)
+                        .args(args)
+                        .spawn()
+                }
+            };
+
+            match result {
+                Ok(_) => println!("{} 运行成功", program_name.unwrap_or(&"".to_string())),
+                Err(e) => {
+                    println!("{} 运行失败: {}", program_name.unwrap_or(&"".to_string()), e);
+                },
+            }
         }
     }
 

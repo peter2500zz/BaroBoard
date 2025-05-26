@@ -1,3 +1,5 @@
+
+
 fn main() {
     // 只在Windows平台上编译资源
     if cfg!(target_os = "windows") {
@@ -15,4 +17,4 @@ fn main() {
         // 编译资源
         res.compile().unwrap();
     }
-} 
+}

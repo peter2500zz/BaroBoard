@@ -19,9 +19,12 @@ pub struct LinkConfig {
     pub run_command: String,
     pub arguments: Vec<String>,
     pub tags: HashSet<String>,
+    pub is_admin: bool,
+    pub is_new_window: bool,
 
     // 子窗口配置
     show_args_config: bool,
+    show_advanced_config: bool,
 }
 
 impl LinkConfig {
@@ -34,8 +37,11 @@ impl LinkConfig {
             run_command: "".to_string(),
             arguments: Vec::new(),
             tags: HashSet::new(),
+            is_admin: false,
+            is_new_window: false,
 
             show_args_config: false,
+            show_advanced_config: false,
         }
     }
 
@@ -49,17 +55,14 @@ impl LinkConfig {
         self.run_command = link.run_command.clone();
         self.arguments = link.arguments.clone();
         self.tags = HashSet::from_iter(link.tags.clone());
+        self.is_admin = link.is_admin;
+        self.is_new_window = link.is_new_window;
     }
 
     
     pub fn config_new_link(&mut self) {
+        *self = Self::new();
         self.is_new_link = true;
-
-        self.name = "".to_string();
-        self.icon_path = None;
-        self.run_command = "".to_string();
-        self.arguments = Vec::new();
-        self.tags = HashSet::new();
     }
 }
 
@@ -130,18 +133,6 @@ impl MyApp {
                 ;
             });
 
-            ui.horizontal(|ui| {
-                ui.label("参数");
-                let arg_button = ui.button(
-                    if self.popups.link_config.arguments.is_empty() {
-                        "没有参数".to_string()
-                    } else {
-                        format!("{} 个参数", self.popups.link_config.arguments.len())
-                    } + " ⚙");
-                if arg_button.clicked() {
-                    self.popups.link_config.show_args_config = true;
-                }
-            });
 
             egui::Window::new("参数配置")
             .collapsible(false)
@@ -254,7 +245,8 @@ impl MyApp {
             );
 
 
-            egui::ComboBox::from_label("选择标签")
+            ui.horizontal(|ui| {
+                egui::ComboBox::from_label("选择标签")
                 .selected_text(if self.popups.link_config.tags.is_empty() {
                     "无标签".to_string()
                 } else {
@@ -294,6 +286,60 @@ impl MyApp {
                     }
                 });
 
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
+                    if ui.button("高级设置 ⚙").clicked() {
+                        println!("打开高级设置");
+                        self.popups.link_config.show_advanced_config = true;
+                    }
+                });
+            });
+
+
+            egui::Window::new("高级设置")
+            .collapsible(false)
+            .resizable(false)
+            .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
+            .open(&mut self.popups.link_config.show_advanced_config)
+            .show(ui.ctx(), |ui| {
+                egui::ScrollArea::vertical()
+                .max_height(256.)
+                .show(ui, |ui| {
+
+
+                #[cfg(target_os = "windows")]
+                {
+                    ui.checkbox(&mut self.popups.link_config.is_admin, {
+                        "以管理员权限运行"
+                    });
+                }
+
+                #[cfg(not(target_os = "windows"))]
+                {
+                    ui.checkbox(&mut self.popups.link_config.is_admin, {
+                        "以超级用户运行"
+                    });
+                }
+
+
+                ui.checkbox(&mut self.popups.link_config.is_new_window, {
+                    "在新的命令行中运行"
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label("配置命令参数");
+                    let arg_button = ui.button(
+                        if self.popups.link_config.arguments.is_empty() {
+                            "没有参数".to_string()
+                        } else {
+                            format!("{} 个参数", self.popups.link_config.arguments.len())
+                        } + " ⚙");
+                    if arg_button.clicked() {
+                        self.popups.link_config.show_args_config = true;
+                    }
+                });
+                
+            })});
+
 
             ui.separator();
             // 保存与取消按钮
@@ -321,7 +367,9 @@ impl MyApp {
                                     self.popups.link_config.icon_path.clone().unwrap_or("".to_string()),
                                     self.popups.link_config.run_command.clone(),
                                     self.popups.link_config.arguments.clone(),
-                                    self.popups.link_config.tags.clone().into_iter().collect()
+                                    self.popups.link_config.tags.clone().into_iter().collect(),
+                                    self.popups.link_config.is_admin,
+                                    self.popups.link_config.is_new_window
                                 )
                             );
                             
@@ -350,6 +398,9 @@ impl MyApp {
                         current_link.run_command = self.popups.link_config.run_command.clone();
                         current_link.arguments = self.popups.link_config.arguments.clone();
                         current_link.tags = self.popups.link_config.tags.clone().into_iter().collect();
+                        current_link.is_admin = self.popups.link_config.is_admin;
+                        current_link.is_new_window = self.popups.link_config.is_new_window;
+
 
                         should_save = true;
                         should_close = true;
@@ -371,6 +422,7 @@ impl MyApp {
             // 用户关闭
             self.popups.called = false;
             self.popups.link_config.show_args_config = false;
+            self.popups.link_config.show_advanced_config = false;
             
             if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
                 if !should_save {

@@ -578,7 +578,21 @@ impl MyApp {
                                     new_program_link.tags.insert(tag.to_string());
                                 }
                             }
-                            
+
+                            // 尝试获取is_admin
+                            if let Some(is_admin) = program_link.get("is_admin") {
+                                if let Some(is_admin_bool) = is_admin.as_bool() {
+                                    new_program_link.is_admin = is_admin_bool;
+                                }
+                            }
+
+                            // 尝试获取is_new_window
+                            if let Some(is_new_window) = program_link.get("is_new_window") {
+                                if let Some(is_new_window_bool) = is_new_window.as_bool() {
+                                    new_program_link.is_new_window = is_new_window_bool;
+                                }
+                            }
+
                             // 尝试获取uuid
                             if let Some(uuid) = program_link.get("uuid") {
                                 if let Some(uuid_str) = uuid.as_str() {
