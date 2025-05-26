@@ -132,7 +132,7 @@ fn main() {
     let called_clone_tray = called.clone();
 
     // 创建托盘图标
-    let mut tray = TrayItem::new("Tray Example", IconSource::RawIcon(4545)).unwrap();
+    let mut tray = TrayItem::new("BaroBoard 工具箱", IconSource::RawIcon(4545)).unwrap();
     
     tray.add_menu_item("显示工具箱", move || {
         *called_clone_tray.lock().unwrap() = true;

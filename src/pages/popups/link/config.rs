@@ -4,6 +4,9 @@ use rfd;
 
 use crate::my_structs::*;
 
+/// 表示参数在列表中的索引位置
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ArgumentIndex(usize);
 
 pub struct LinkConfig {
     is_new_link: bool,
@@ -151,10 +154,23 @@ impl MyApp {
                 .show(ui, |ui| {
                 // ui.vertical(|ui| {
                     let mut index_should_remove: Option<usize> = None;
+                    let mut drag_from = None;
+                    let mut drag_to = None;
 
                     for (index, _) in self.popups.link_config.arguments.clone().iter().enumerate() {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new(format!("参数 {}", index + 1)));
+                        let response = ui.horizontal(|ui| {
+                            // 只让标签部分可拖拽
+                            let drag_response = ui.dnd_drag_source(
+                                egui::Id::new(format!("arg_{}", index)), 
+                                ArgumentIndex(index), 
+                                |ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new(format!("☰ 参数 {}", index + 1)));
+                                    });
+                                }
+                            ).response;
+                            
+                            // 输入框和按钮在拖拽区域外
                             ui.add(
                                 egui::TextEdit::singleline(&mut self.popups.link_config.arguments[index])
                                 .hint_text("e.g. --name=John")
@@ -162,7 +178,63 @@ impl MyApp {
                             if ui.button("➖").clicked() {
                                 index_should_remove = Some(index);
                             }
-                        });
+                            
+                            drag_response
+                        }).inner;
+
+                        // 检查是否有拖拽悬停在当前项目上
+                        if let (Some(pointer), Some(_)) = (
+                            ui.input(|i| i.pointer.interact_pos()),
+                            response.dnd_hover_payload::<ArgumentIndex>(),
+                        ) {
+                            // 获取当前项目的矩形区域
+                            let rect = response.rect;
+                            
+                            // 创建线条样式
+                            let stroke = egui::Stroke::new(2.0, egui::Color32::from_rgb(100, 100, 255));
+                            
+                            // 根据鼠标位置确定插入位置（上方或下方）
+                            if pointer.y < rect.center().y {
+                                // 在上方绘制水平线
+                                ui.painter().hline(rect.x_range(), rect.top(), stroke);
+                            } else {
+                                // 在下方绘制水平线
+                                ui.painter().hline(rect.x_range(), rect.bottom(), stroke);
+                            }
+                            
+                            // 检查是否释放了拖拽
+                            if let Some(dragged_index) = response.dnd_release_payload::<ArgumentIndex>() {
+                                // 记录拖拽源和目标
+                                drag_from = Some(dragged_index.0);
+                                
+                                // 根据鼠标位置确定是插入到上方还是下方
+                                let target_index = if pointer.y < rect.center().y {
+                                    index
+                                } else {
+                                    index + 1
+                                };
+                                
+                                drag_to = Some(target_index);
+                            }
+                        }
+                    }
+
+                    // 处理拖拽重排
+                    if let (Some(from_idx), Some(to_idx)) = (drag_from, drag_to) {
+                        if from_idx != to_idx {
+                            // 先移除源项目
+                            let argument = self.popups.link_config.arguments.remove(from_idx);
+                            
+                            // 调整目标索引（如果源在目标之前）
+                            let adjusted_to_idx = if from_idx < to_idx {
+                                to_idx - 1
+                            } else {
+                                to_idx
+                            };
+                            
+                            // 插入到目标位置
+                            self.popups.link_config.arguments.insert(adjusted_to_idx, argument);
+                        }
                     }
 
                     if let Some(index) = index_should_remove {
