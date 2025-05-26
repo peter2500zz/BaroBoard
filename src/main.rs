@@ -12,13 +12,14 @@ use tray_item::{TrayItem, IconSource};
 use single_instance::SingleInstance;
 
 use window::{event, glow_app};
-use my_structs::{MyApp, DOUBLE_ALT_COOLDOWN};
+use my_structs::MyApp;
 
 
-pub const PROGRAM_VERSION: &str = "v0.1.2";
-pub const CONFIG_FILE_VERSION: u32 = 3;
+pub const WINDOW_SIZE: (f32, f32) = (800.0, 500.0);
+pub const PROGRAM_VERSION: &str = "v0.1.2-alpha.1";
+pub const CONFIG_FILE_VERSION: u32 = 4;
 pub const CONFIG_FILE_NAME: &str = ".links.json";
-
+pub const DOUBLE_ALT_COOLDOWN: u64 = 500;
 
 fn main() {
     let instance = SingleInstance::new("BaroBoard").unwrap();
@@ -120,8 +121,8 @@ fn main() {
         .with_resizable(false)
         .with_visible(false)
         .with_inner_size(winit::dpi::LogicalSize {
-            width: 800.0,
-            height: 500.0,
+            width: WINDOW_SIZE.0,
+            height: WINDOW_SIZE.1,
         })
         .with_title("BaroBoard 工具箱") // 参见 https://github.com/emilk/egui/pull/2279
         // .with_visible(false)

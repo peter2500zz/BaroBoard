@@ -553,6 +553,19 @@ impl MyApp {
                                 }
                             }
 
+                            // 尝试获取argument
+                            if let Some(arguments) = program_link.get("arguments") {
+                                if let Some(arguments_list) = arguments.as_array() {
+                                    for argument_item in arguments_list {
+                                        if let Some(argument_item_str) = argument_item.as_str() {
+                                            new_program_link.arguments.push(argument_item_str.to_string());
+                                        }
+                                    }
+                                } else if let Some(argument_str) = arguments.as_str() {
+                                    new_program_link.arguments.push(argument_str.to_string());
+                                }
+                            }
+
                             // 尝试获取tags
                             if let Some(tags) = program_link.get("tags") {
                                 if let Some(tags_list) = tags.as_array() {

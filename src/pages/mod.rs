@@ -2,7 +2,6 @@ pub mod popups;
 mod sidebar;
 
 use egui;
-use std::process::Command;
 use std::collections::HashSet;
 use strsim::jaro_winkler;
 use pinyin::ToPinyin;
@@ -25,7 +24,20 @@ impl MyApp {
                     ui.horizontal_wrapped(|ui| {
                         
                         ui.with_layout(egui::Layout::centered_and_justified(egui::Direction::LeftToRight), |ui| {
-                            ui.heading(egui::RichText::new(&self.title));
+                            ui.heading(egui::RichText::new(&self.title))
+                            .context_menu(|ui| {
+
+                                if ui.button("所有快捷方式").clicked() {
+                                    println!("{:?}", self.program_links);
+                                }
+                                if ui.button("已缓存的图片").clicked() {
+                                    println!("{:?}", self.cached_icon);
+                                }
+
+                                if ui.button("隐藏").clicked() {
+                                    self.hide_window();
+                                }
+                            });
                             
                         });
                         if self.wont_save {
@@ -42,21 +54,7 @@ impl MyApp {
                                 ;
                             });
                         }
-                    }).response
-                    
-                    .context_menu(|ui| {
-
-                        if ui.button("所有快捷方式").clicked() {
-                            println!("{:?}", self.program_links);
-                        }
-                        if ui.button("已缓存的图片").clicked() {
-                            println!("{:?}", self.cached_icon);
-                        }
-
-                        if ui.button("隐藏").clicked() {
-                            self.hide_window();
-                        }
-                    });
+                    })
                 });
 
                 ui.vertical_centered(|ui: &mut egui::Ui| {
@@ -122,12 +120,7 @@ impl MyApp {
                             {
                                 
                                 println!("选中的程序: {} 权重: {}", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string()), results[0].1);
-                                match Command::new(&self.sorted_program_links[0].run_command).spawn() {
-                                    Ok(_) => println!("{} 运行成功", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string())),
-                                    Err(e) => {
-                                        println!("{} 运行失败: {}", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string()), e);
-                                    },
-                                }
+                                self.run_program(self.sorted_program_links[0].clone());
                                 self.search_text = "".to_string();
 
                                 self.hide_window();
@@ -301,13 +294,7 @@ impl MyApp {
 
                             } else {
                                 if response.clicked() {
-                                    match Command::new(&program.run_command).spawn() {
-                                        Ok(_) => println!("{} 运行成功", program.name.get(0).unwrap_or(&"".to_string())),
-                                        Err(e) => {
-                                            println!("{} 运行失败: {}", program.name.get(0).unwrap_or(&"".to_string()), e);
-                                            
-                                        },
-                                    }
+                                    self.run_program(program.clone());
                                 }
                                 
                                 // 右键点击图标，显示上下文菜单
@@ -325,13 +312,7 @@ impl MyApp {
         
                                     if ui.button("运行")
                                     .clicked() {
-                                        match Command::new(&program.run_command).spawn() {
-                                            Ok(_) => println!("{} 运行成功", program.name.get(0).unwrap_or(&"".to_string())),
-                                            Err(e) => {
-                                                println!("{} 运行失败: {}", program.name.get(0).unwrap_or(&"".to_string()), e);
-                                                
-                                            },
-                                        }
+                                        self.run_program(program.clone());
 
                                         ui.close_menu();
                                     }

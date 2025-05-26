@@ -14,7 +14,11 @@ pub struct LinkConfig {
     pub name: String,
     pub icon_path: Option<String>,
     pub run_command: String,
+    pub arguments: Vec<String>,
     pub tags: HashSet<String>,
+
+    // 子窗口配置
+    show_args_config: bool,
 }
 
 impl LinkConfig {
@@ -25,7 +29,10 @@ impl LinkConfig {
             name: "".to_string(),
             icon_path: None,
             run_command: "".to_string(),
+            arguments: Vec::new(),
             tags: HashSet::new(),
+
+            show_args_config: false,
         }
     }
 
@@ -37,6 +44,7 @@ impl LinkConfig {
         self.name = link.name.clone().join("/");
         self.icon_path = Some(link.icon_path.clone());
         self.run_command = link.run_command.clone();
+        self.arguments = link.arguments.clone();
         self.tags = HashSet::from_iter(link.tags.clone());
     }
 
@@ -47,6 +55,7 @@ impl LinkConfig {
         self.name = "".to_string();
         self.icon_path = None;
         self.run_command = "".to_string();
+        self.arguments = Vec::new();
         self.tags = HashSet::new();
     }
 }
@@ -67,7 +76,8 @@ impl MyApp {
         })
         .collapsible(false)
         .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+        .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
+        // .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
         
         .fade_in(true)
         .fade_out(true)
@@ -115,6 +125,55 @@ impl MyApp {
                     }
                 })
                 ;
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("参数");
+                let arg_button = ui.button(
+                    if self.popups.link_config.arguments.is_empty() {
+                        "没有参数".to_string()
+                    } else {
+                        format!("{} 个参数", self.popups.link_config.arguments.len())
+                    } + " ⚙");
+                if arg_button.clicked() {
+                    self.popups.link_config.show_args_config = true;
+                }
+            });
+
+            egui::Window::new("参数配置")
+            .collapsible(false)
+            .resizable(false)
+            .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
+            .open(&mut self.popups.link_config.show_args_config)
+            .show(ui.ctx(), |ui| {
+                egui::ScrollArea::vertical()
+                .max_height(256.)
+                .show(ui, |ui| {
+                // ui.vertical(|ui| {
+                    let mut index_should_remove: Option<usize> = None;
+
+                    for (index, _) in self.popups.link_config.arguments.clone().iter().enumerate() {
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new(format!("参数 {}", index + 1)));
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.popups.link_config.arguments[index])
+                                .hint_text("e.g. --name=John")
+                            );
+                            if ui.button("➖").clicked() {
+                                index_should_remove = Some(index);
+                            }
+                        });
+                    }
+
+                    if let Some(index) = index_should_remove {
+                        self.popups.link_config.arguments.remove(index);
+                    }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                        if ui.button("➕").clicked() {
+                            self.popups.link_config.arguments.push("".to_string());
+                        }
+                    });
+                });
             });
 
             ui.label(
@@ -189,6 +248,7 @@ impl MyApp {
                                     self.popups.link_config.name.clone().split("/").map(|s| s.to_string()).collect(),
                                     self.popups.link_config.icon_path.clone().unwrap_or("".to_string()),
                                     self.popups.link_config.run_command.clone(),
+                                    self.popups.link_config.arguments.clone(),
                                     self.popups.link_config.tags.clone().into_iter().collect()
                                 )
                             );
@@ -216,6 +276,7 @@ impl MyApp {
                         current_link.name = self.popups.link_config.name.clone().split("/").map(|s| s.to_string()).collect();
                         current_link.icon_path = self.popups.link_config.icon_path.clone().unwrap_or("".to_string());
                         current_link.run_command = self.popups.link_config.run_command.clone();
+                        current_link.arguments = self.popups.link_config.arguments.clone();
                         current_link.tags = self.popups.link_config.tags.clone().into_iter().collect();
 
                         should_save = true;
@@ -237,6 +298,7 @@ impl MyApp {
             println!("*你* 关闭了对吧？");
             // 用户关闭
             self.popups.called = false;
+            self.popups.link_config.show_args_config = false;
             
             if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
                 if !should_save {

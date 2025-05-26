@@ -3,6 +3,8 @@ use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use std::sync::{Arc, Mutex};
+use std::process::Command;
+
 use crate::pages::popups::Popups;
 use crate::window::{self, event::UserEvent};
 
@@ -12,6 +14,7 @@ pub struct ProgramLink {
     pub name: Vec<String>,
     pub icon_path: String,
     pub run_command: String,
+    pub arguments: Vec<String>,
     pub tags: HashSet<String>,
     pub uuid: String,
 }
@@ -22,6 +25,7 @@ impl Default for ProgramLink {
             name: Vec::new(),
             icon_path: "".to_string(),
             run_command: "".to_string(),
+            arguments: Vec::new(),
             tags: HashSet::new(),
             uuid: Uuid::new_v4().to_string(),
         }
@@ -29,11 +33,12 @@ impl Default for ProgramLink {
 }
 
 impl ProgramLink {
-    pub fn new(name: Vec<String>, icon_path: String, run_command: String, tags: HashSet<String>) -> Self {
+    pub fn new(name: Vec<String>, icon_path: String, run_command: String, argument: Vec<String>, tags: HashSet<String>) -> Self {
         Self {
             name: name,
             icon_path: icon_path,
             run_command: run_command,
+            arguments: argument,
             tags: tags,
             ..Default::default()
         }
@@ -61,8 +66,6 @@ impl LinkPosition {
     }
 }
 
-
-pub const DOUBLE_ALT_COOLDOWN: u64 = 500;
 pub struct MyApp {
     pub proxy: winit::event_loop::EventLoopProxy<UserEvent>,
 
@@ -161,6 +164,24 @@ impl MyApp {
             }
         }
         self.icon_will_clean.clear();
+    }
+
+    pub fn run_program(&self, program_link: ProgramLink) {
+        // 解析命令字符串，分离程序名和参数
+        let command = program_link.run_command;
+        let args = program_link.arguments;
+        
+        if command.is_empty() {
+            println!("{} 运行失败: 命令为空", program_link.name.get(0).unwrap_or(&"".to_string()));
+            return;
+        }
+
+        match Command::new(command).args(args).spawn() {
+            Ok(_) => println!("{} 运行成功", program_link.name.get(0).unwrap_or(&"".to_string())),
+            Err(e) => {
+                println!("{} 运行失败: {}", program_link.name.get(0).unwrap_or(&"".to_string()), e);
+            },
+        }
     }
 
     // pub fn show_window(&self) {
