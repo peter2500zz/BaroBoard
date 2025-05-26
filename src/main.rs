@@ -7,8 +7,9 @@ mod window;
 use std::sync::{Arc, Mutex};  // Arc = 原子引用计数(Atomically Reference Counted)，一种线程安全的智能指针，允许在多个线程间共享所有权
 use egui_winit::winit;
 use rdev::{listen, EventType, Key};
+use winit::platform::windows::IconExtWindows;
 use std::time::{Duration, Instant};
-use tray_item::{TrayItem, IconSource};
+use trayicon;
 use single_instance::SingleInstance;
 
 use window::{event, glow_app};
@@ -16,10 +17,11 @@ use my_structs::MyApp;
 
 
 pub const WINDOW_SIZE: (f32, f32) = (800.0, 500.0);
-pub const PROGRAM_VERSION: &str = "v0.1.2-alpha.1";
+pub const PROGRAM_VERSION: &str = "v0.1.3-alpha.1";
 pub const CONFIG_FILE_VERSION: u32 = 4;
 pub const CONFIG_FILE_NAME: &str = ".links.json";
 pub const DOUBLE_ALT_COOLDOWN: u64 = 500;
+
 
 fn main() {
     let instance = SingleInstance::new("BaroBoard").unwrap();
@@ -125,30 +127,37 @@ fn main() {
             height: WINDOW_SIZE.1,
         })
         .with_title("BaroBoard 工具箱") // 参见 https://github.com/emilk/egui/pull/2279
+        // .with_window_icon(Some(winit::window::Icon::from_rgba(rgba, width, height)))
         // .with_visible(false)
         ;
 
     let proxy_clone_tray = proxy.clone();
-    let called_clone_tray = called.clone();
 
     // 创建托盘图标
-    let mut tray = TrayItem::new("BaroBoard 工具箱", IconSource::RawIcon(4545)).unwrap();
-    
-    tray.add_menu_item("显示工具箱", move || {
-        *called_clone_tray.lock().unwrap() = true;
-        proxy_clone_tray
-            .send_event(event::UserEvent::ShowWindow)
-            .unwrap();
-    }).unwrap();
+    let tray_icon = trayicon::TrayIconBuilder::new()
+    .sender(move |e: &event::UserEvent| {
+        let _ = proxy_clone_tray.send_event(e.clone());
+    })
+    .icon_from_buffer(include_bytes!("../logo.ico"))
+    .tooltip("BaroBoard 工具箱")
 
-    tray.add_menu_item("退出", || {
-        std::process::exit(0);
-    }).unwrap();
+    .on_click(event::UserEvent::LeftClickTrayIcon)
+    .on_right_click(event::UserEvent::RightClickTrayIcon)
+
+    .menu(
+        trayicon::MenuBuilder::new()
+        .item("显示工具箱", event::UserEvent::ShowWindow)
+        .item("退出", event::UserEvent::Exit)
+    )
+
+    .build()
+    .unwrap();
 
     // 创建主应用程序
     let proxy_clone_app = proxy.clone();
     let mut app = glow_app::GlowApp::new(
         winit_window_builder,
+        tray_icon,
         proxy.clone(),
         Box::new(move |egui_ctx| {
             egui_ctx.send_viewport_cmd(egui::viewport::ViewportCommand::EnableButtons {
