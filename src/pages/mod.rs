@@ -290,7 +290,7 @@ impl MyApp {
                         if !self.popups.called {
                             if self.edit_mode && response.clicked() {
                                 // 打开设置窗口
-                                self.popups.config_existing_link(LinkPosition::new(link_index), program);
+                                self.popups.config_existing_link(LinkPosition::new(absolute_index), program);
 
                             } else {
                                 if response.clicked() {
@@ -317,13 +317,13 @@ impl MyApp {
                                         ui.close_menu();
                                     }
                                     if ui.button("编辑").clicked() {
-                                        self.popups.config_existing_link(LinkPosition::new(link_index), program);
+                                        self.popups.config_existing_link(LinkPosition::new(absolute_index), program);
                                         ui.close_menu();
                                     }
                                     
                                     if ui.button("删除")
                                     .clicked() {
-                                        self.popups.delete_link(LinkPosition::new(link_index));
+                                        self.popups.delete_link(LinkPosition::new(absolute_index));
                                         // self.delete_link(link_index);
                                         
                                         ui.close_menu();

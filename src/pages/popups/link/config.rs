@@ -24,6 +24,7 @@ pub struct LinkConfig {
 
     // 子窗口配置
     show_args_config: bool,
+    args_scroll_to_bottom: bool,
     show_advanced_config: bool,
 }
 
@@ -38,9 +39,10 @@ impl LinkConfig {
             arguments: Vec::new(),
             tags: HashSet::new(),
             is_admin: false,
-            is_new_window: false,
+            is_new_window: true,
 
             show_args_config: false,
+            args_scroll_to_bottom: false,
             show_advanced_config: false,
         }
     }
@@ -140,6 +142,8 @@ impl MyApp {
             .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
             .open(&mut self.popups.link_config.show_args_config)
             .show(ui.ctx(), |ui| {
+                let mut has_empty_argument = false;
+
                 egui::ScrollArea::vertical()
                 .max_height(256.)
                 .show(ui, |ui| {
@@ -162,6 +166,10 @@ impl MyApp {
                             ).response;
                             
                             // 输入框和按钮在拖拽区域外
+                            if self.popups.link_config.arguments[index].is_empty() {
+                                has_empty_argument = true;
+                            }
+
                             ui.add(
                                 egui::TextEdit::singleline(&mut self.popups.link_config.arguments[index])
                                 .hint_text("e.g. --name=John")
@@ -231,9 +239,28 @@ impl MyApp {
                     if let Some(index) = index_should_remove {
                         self.popups.link_config.arguments.remove(index);
                     }
+
+                    if self.popups.link_config.args_scroll_to_bottom {
+                        ui.scroll_to_cursor(Some(egui::Align::BOTTOM));
+                        self.popups.link_config.args_scroll_to_bottom = false;
+                    }
+                });
+
+                ui.horizontal(|ui| {
+                    if self.popups.link_config.arguments.is_empty() {
+                        ui.label(egui::RichText::new(
+                            "这个快捷方式还没有任何参数"
+                        ).weak());
+                    } else if has_empty_argument {
+                        ui.label(egui::RichText::new(
+                            "⚠ 你似乎有一些空参数，如果是刻意为之，请无视此警告"
+                        ).color(egui::Color32::LIGHT_RED));
+                    }
+
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                         if ui.button("➕").clicked() {
                             self.popups.link_config.arguments.push("".to_string());
+                            self.popups.link_config.args_scroll_to_bottom = true;
                         }
                     });
                 });
@@ -300,6 +327,7 @@ impl MyApp {
             .resizable(false)
             .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
             .open(&mut self.popups.link_config.show_advanced_config)
+            .max_width(256.)
             .show(ui.ctx(), |ui| {
                 egui::ScrollArea::vertical()
                 .max_height(256.)
@@ -320,10 +348,25 @@ impl MyApp {
                     });
                 }
 
+                if self.popups.link_config.is_admin {
+                    ui.label(egui::RichText::new(
+                        "⚠ 权限的提升可能是危险的，请确保你信任这个程序"
+                    ).color(egui::Color32::LIGHT_RED));
+                }
+
+                ui.separator();
 
                 ui.checkbox(&mut self.popups.link_config.is_new_window, {
                     "在新的命令行中运行"
                 });
+
+                if !self.popups.link_config.is_new_window {
+                    ui.label(egui::RichText::new(
+                        "⚠ 如果这是个命令行程序，不在新的命令行中运行会导致你无法和它交互。除非你确定这个程序有非命令行用户界面，否则请保持开启"
+                    ).color(egui::Color32::LIGHT_RED));
+                }
+
+                ui.separator();
 
                 ui.horizontal(|ui| {
                     ui.label("配置命令参数");

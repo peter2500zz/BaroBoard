@@ -17,7 +17,7 @@ use my_structs::MyApp;
 
 
 pub const WINDOW_SIZE: (f32, f32) = (800.0, 500.0);
-pub const PROGRAM_VERSION: &str = "v0.1.3-alpha.03";
+pub const PROGRAM_VERSION: &str = "v0.1.3-alpha.04";
 pub const CONFIG_FILE_VERSION: u32 = 5;
 pub const CONFIG_FILE_NAME: &str = ".links.json";
 pub const DOUBLE_ALT_COOLDOWN: u64 = 500;

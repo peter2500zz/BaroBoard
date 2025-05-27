@@ -35,7 +35,7 @@ impl Default for ProgramLink {
             tags: HashSet::new(),
 
             is_admin: false,
-            is_new_window: false,
+            is_new_window: true,
 
             uuid: Uuid::new_v4().to_string(),
         }
@@ -214,7 +214,7 @@ impl MyApp {
                 // 仅管理员权限
                 (true, false) => {
                     let mut ps_command = format!(
-                        "Start-Process -FilePath '{}' -Verb RunAs -WindowStyle Hidden -Wait",
+                        "Start-Process -FilePath '{}' -Verb RunAs -WindowStyle Hidden",
                         command.replace("'", "''")
                     );
                     if !args.is_empty() {
