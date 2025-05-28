@@ -78,14 +78,22 @@ impl LinkPosition {
     }
 }
 
+#[derive(Debug)]
 pub struct MyApp {
+    // 与窗口通信的代理
     pub proxy: winit::event_loop::EventLoopProxy<UserEvent>,
 
+    // 程序链接
     pub program_links: Vec<ProgramLink>,
+    // 标签
     pub tags: HashSet<String>,
+    // 当前标签
     pub current_tag: Option<String>,
+    // 标题
     pub title: String,
+    // 搜索文本
     pub search_text: String,
+    // 排序后的程序链接
     pub sorted_program_links: Vec<ProgramLink>,
 
     // 停止保存模式
@@ -100,6 +108,11 @@ pub struct MyApp {
     pub cached_icon: HashMap<String, HashSet<String>>,
     // 编辑模式
     pub edit_mode: bool,
+    // 是否有悬浮文件
+    pub is_hover_file: Option<String>,
+    // 释放的悬浮文件路径
+    pub hover_file: Option<String>,
+
     // 被唤起
     pub called: Arc<Mutex<bool>>,
 }
@@ -160,6 +173,8 @@ impl MyApp {
             icon_will_clean: Vec::new(),
             called: called,
             edit_mode: false,
+            is_hover_file: None,
+            hover_file: None,
             wont_save: false,
         }
     }
@@ -264,18 +279,58 @@ impl MyApp {
             .send_event(UserEvent::HideWindow)
             .unwrap();
     }
+
+    
+    fn file_hover_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        if self.is_hover_file.is_some() {
+            let screen_rect = ctx.screen_rect();
+            ui.painter().rect_filled(
+                screen_rect,
+                egui::CornerRadius::ZERO,
+                egui::Color32::from_rgba_premultiplied(0, 0, 0, 100),
+            );
+
+            ui.painter().text(
+                screen_rect.center(),
+                egui::Align2::CENTER_CENTER,
+                "松开鼠标为此文件添加快捷方式",
+                egui::FontId::proportional(24.0),
+                egui::Color32::WHITE,
+            );
+        }
+    }
 }
 
 impl window::App for MyApp {
+    fn init(&mut self, ctx: &egui::Context) {
+        println!("初始化成功");
+    }
+
     fn update(&mut self, ctx: &egui::Context) {
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             self.hide_window();
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            // 顺序是重要的
             self.main_ui(ctx, ui);
             self.clean_unused_icon(ctx);
+            self.file_hover_ui(ctx, ui);
         });
+    }
+
+    fn on_file_hovered(&mut self, path: String) {
+        self.is_hover_file = Some(path);
+    }
+
+    // 文件悬浮取消
+    fn on_file_hover_cancelled(&mut self) {
+        self.is_hover_file = None;
+    }
+
+    // 文件释放
+    fn on_file_dropped(&mut self, path: String) {
+        self.hover_file = Some(path);
     }
 }
 

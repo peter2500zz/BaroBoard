@@ -27,6 +27,10 @@ impl MyApp {
                             ui.heading(egui::RichText::new(&self.title))
                             .context_menu(|ui| {
 
+                                if ui.button("自身信息").clicked() {
+                                    println!("{:?}", self);
+                                }
+
                                 if ui.button("所有快捷方式").clicked() {
                                     println!("{:?}", self.program_links);
                                 }
@@ -36,6 +40,10 @@ impl MyApp {
 
                                 if ui.button("隐藏").clicked() {
                                     self.hide_window();
+                                }
+
+                                if ui.button("获取图标").clicked() {
+                                    crate::utils::windows_utils::get_icon_from_exe("C:\\Windows\\System32\\notepad.exe").unwrap();
                                 }
                             });
                             

@@ -8,6 +8,8 @@ use crate::my_structs::*;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct ArgumentIndex(usize);
 
+/// 快捷方式配置
+#[derive(Debug)]
 pub struct LinkConfig {
     is_new_link: bool,
     
@@ -314,15 +316,15 @@ impl MyApp {
                 });
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
-                    if ui.button("高级设置 ⚙").clicked() {
-                        println!("打开高级设置");
+                    if ui.button("高级选项 ⚙").clicked() {
+                        println!("打开高级选项");
                         self.popups.link_config.show_advanced_config = true;
                     }
                 });
             });
 
 
-            egui::Window::new("高级设置")
+            egui::Window::new("高级选项")
             .collapsible(false)
             .resizable(false)
             .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))

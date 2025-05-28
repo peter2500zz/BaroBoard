@@ -10,4 +10,9 @@ pub enum UserEvent {
     // 托盘相关
     LeftClickTrayIcon,
     RightClickTrayIcon,
+
+    // 文件相关
+    FileHovered(String),
+    FileHoverCancelled,
+    FileDropped(String),
 }

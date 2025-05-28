@@ -4,6 +4,7 @@ mod my_structs;
 mod pages;
 mod resources;
 mod window;
+mod utils;
 
 use std::sync::{Arc, Mutex};  // Arc = 原子引用计数(Atomically Reference Counted)，一种线程安全的智能指针，允许在多个线程间共享所有权
 use egui_winit::winit;
@@ -17,7 +18,7 @@ use my_structs::MyApp;
 
 
 pub const WINDOW_SIZE: (f32, f32) = (800.0, 500.0);
-pub const PROGRAM_VERSION: &str = "v0.1.3-alpha.04";
+pub const PROGRAM_VERSION: &str = "v0.1.3-alpha.05";
 pub const CONFIG_FILE_VERSION: u32 = 5;
 pub const CONFIG_FILE_NAME: &str = ".links.json";
 pub const DOUBLE_ALT_COOLDOWN: u64 = 500;

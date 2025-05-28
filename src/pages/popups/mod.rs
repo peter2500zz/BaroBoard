@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use link::save;
 use crate::my_structs::*;
 
+#[derive(Debug)]
 pub struct LinkToDelete {
     index_of_the_link: usize,
 }
@@ -17,7 +18,7 @@ impl LinkToDelete {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum PopupType {
     LinkConfig,
     LinkDelete,
@@ -31,6 +32,7 @@ pub enum PopupType {
     ConfigNotAJson,
 }
 
+#[derive(Debug)]
 pub struct Popups {
     pub called: bool,
 

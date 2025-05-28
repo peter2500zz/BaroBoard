@@ -6,7 +6,20 @@ use winit::raw_window_handle::HasWindowHandle;
 
 
 pub trait App {
+    // 初始化
+    fn init(&mut self, ctx: &egui::Context);
+
+    // 更新
     fn update(&mut self, ctx: &egui::Context);
+
+    // 文件悬浮
+    fn on_file_hovered(&mut self, path: String);
+
+    // 文件悬浮取消
+    fn on_file_hover_cancelled(&mut self);
+
+    // 文件释放
+    fn on_file_dropped(&mut self, path: String);
 }
 
 
