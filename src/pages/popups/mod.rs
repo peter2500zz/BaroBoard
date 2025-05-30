@@ -3,6 +3,7 @@ pub mod link;
 use std::collections::HashSet;
 
 use link::save;
+use log::{debug, warn};
 use crate::my_structs::*;
 
 #[derive(Debug)]
@@ -60,52 +61,60 @@ impl Popups {
     }
 
     pub fn cannot_save(&mut self) {
+        debug!("请求无法保存弹窗");
         self.called = true;
         self.popup_type = Some(PopupType::CannotSave);
     }
 
     pub fn delete_link(&mut self, position: LinkPosition) {
-        println!("index {:?}", position);
+        debug!("请求删除快捷方式弹窗，位置: {:?}", position);
         self.called = true;
         self.popup_type = Some(PopupType::LinkDelete);
         self.link_to_delete.index_of_the_link = position.link_index;
     }
 
     pub fn config_existing_link(&mut self, position: LinkPosition, link: &ProgramLink) {
+        debug!("请求配置快捷方式弹窗，位置: {:?}", position);
         self.called = true;
         self.popup_type = Some(PopupType::LinkConfig);
         self.link_config.config_existing_link(position, link);
     }
 
     pub fn config_new_link(&mut self) {
+        debug!("请求配置新快捷方式弹窗");
         self.called = true;
         self.popup_type = Some(PopupType::LinkConfig);
         self.link_config.config_new_link();
     }
 
     pub fn delete_tag(&mut self, tag: String) {
+        debug!("请求删除标签弹窗，标签: {}", tag);
         self.called = true;
         self.popup_type = Some(PopupType::TagDelete);
         self.tag_to_delete = tag;
     }
 
     pub fn new_tag(&mut self) {
+        debug!("请求创建新标签弹窗");
         self.called = true;
         self.tag_new = "".to_string();
         self.popup_type = Some(PopupType::TagNew);
     }
 
     pub fn config_file_too_old(&mut self) {
+        debug!("请求配置文件过旧弹窗");
         self.called = true;
         self.popup_type = Some(PopupType::ConfigTooOld);
     }
 
     pub fn config_file_format_error(&mut self) {
+        debug!("请求配置文件格式错误弹窗");
         self.called = true;
         self.popup_type = Some(PopupType::ConfigFormatError);
     }
 
     fn config_not_a_json(&mut self) {
+        debug!("请求配置文件不是JSON弹窗");
         self.called = true;
         self.popup_type = Some(PopupType::ConfigNotAJson);
     }
@@ -168,7 +177,8 @@ impl MyApp {
         });
 
         if (!show && !should_close && self.popups.called) || should_close {
-            println!("*你* 关闭了对吧？");
+            debug!("配置文件不是JSON弹窗关闭");
+            // println!("*你* 关闭了对吧？");
             // 用户关闭
             self.popups.called = false;
         }
@@ -221,7 +231,8 @@ impl MyApp {
         });
 
         if (!show && !should_close && self.popups.called) || should_close {
-            println!("*你* 关闭了对吧？");
+            debug!("配置文件格式错误弹窗关闭");
+            // println!("*你* 关闭了对吧？");
             // 用户关闭
             if should_auto_fix {
                 self.config_auto_fix();
@@ -276,13 +287,14 @@ impl MyApp {
 
 
         if (!show && !should_close && self.popups.called) || should_close {
-            println!("*你* 关闭了对吧？");
+            debug!("配置文件过旧弹窗关闭");
+            // println!("*你* 关闭了对吧？");
             // 用户关闭
             
             self.popups.called = false;
 
             if should_force_read {
-                println!("强制读取");
+                warn!("尝试强制读取配置文件");
                 self.force_read_config();
             }
         }
@@ -343,7 +355,8 @@ impl MyApp {
 
 
         if (!show && !should_close && self.popups.called) || should_close {
-            println!("*你* 关闭了对吧？");
+            debug!("创建新标签弹窗关闭");
+            // println!("*你* 关闭了对吧？");
             // 用户关闭
             self.popups.called = false;
 
@@ -481,7 +494,8 @@ impl MyApp {
 
 
         if (!show && !should_close && self.popups.called) || should_close {
-            println!("*你* 关闭了对吧？");
+            debug!("删除快捷方式弹窗关闭");
+            // println!("*你* 关闭了对吧？");
             // 用户关闭
             self.popups.called = false;
 
@@ -649,7 +663,7 @@ impl MyApp {
                 },
             }
         } else {
-            println!("停止保存模式");
+            debug!("停止保存模式");
         }
     }
 }

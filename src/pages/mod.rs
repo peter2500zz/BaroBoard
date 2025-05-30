@@ -2,6 +2,7 @@ pub mod popups;
 mod sidebar;
 
 use egui;
+use log::{debug, info};
 use std::collections::HashSet;
 use strsim::jaro_winkler;
 use pinyin::ToPinyin;
@@ -28,14 +29,14 @@ impl MyApp {
                             .context_menu(|ui| {
 
                                 if ui.button("自身信息").clicked() {
-                                    println!("{:?}", self);
+                                    info!("{:?}", self);
                                 }
 
                                 if ui.button("所有快捷方式").clicked() {
-                                    println!("{:?}", self.program_links);
+                                    info!("{:?}", self.program_links);
                                 }
                                 if ui.button("已缓存的图片").clicked() {
-                                    println!("{:?}", self.cached_icon);
+                                    info!("{:?}", self.cached_icon);
                                 }
 
                                 if ui.button("隐藏").clicked() {
@@ -127,7 +128,7 @@ impl MyApp {
                                 search_text.lost_focus()
                             {
                                 
-                                println!("选中的程序: {} 权重: {}", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string()), results[0].1);
+                                info!("选中: {} 权重: {}", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string()), results[0].1);
                                 self.run_program(self.sorted_program_links[0].clone());
                                 self.search_text = "".to_string();
 
@@ -290,7 +291,7 @@ impl MyApp {
                                     
                                     drag_to = Some(target_index);
 
-                                    println!("由于拖拽 尝试保存");
+                                    debug!("由于拖拽 尝试保存");
                                     should_save = true;
                                 }
                             }

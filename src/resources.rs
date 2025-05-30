@@ -1,5 +1,5 @@
 use std::sync::Arc;
-
+use log::{error, info, warn};
 
 pub const LOGO_ICO: &[u8] = include_bytes!("../assets/logo.ico");
 
@@ -44,7 +44,7 @@ pub fn setup_custom_fonts(ctx: &egui::Context) {
         // 如果找到字体文件，从文件读取
         match std::fs::read(font_path) {
             Ok(font_data) => {
-                println!("已加载系统字体: {:?}", font_path);
+                info!("使用字体: {}", font_path.display());
                 fonts.font_data.insert(
                     "my_font".to_owned(),
                     // 这里也使用Arc共享字体数据，但这里的Arc主要用于避免数据复制，而非线程安全
@@ -67,12 +67,13 @@ pub fn setup_custom_fonts(ctx: &egui::Context) {
                     .push("my_font".to_owned());
             },
             Err(err) => {
-                eprintln!("无法加载系统字体 {:?}: {}", font_path, err);
+                error!("无法加载系统字体 {:?}: {}", font_path, err);
+                warn!("将使用默认字体");
                 // 加载失败时使用默认字体
             }
         }
     } else {
-        eprintln!("未找到系统字体 {:?}，将使用默认字体", font_path);
+        warn!("用默认字体");
     }
 
     // 将字体设置应用到 egui 上下文

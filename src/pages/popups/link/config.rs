@@ -100,14 +100,36 @@ impl MyApp {
                 egui::ImageButton::new(format!("file://{}", &self.popups.link_config.icon_path.clone().unwrap_or("你还没有添加任何图片！".to_string())))
             ).clicked() {
                 
+                let mut valid_extension = vec!["png", "svg"];
+                #[cfg(target_os = "windows")]
+                {
+                    valid_extension.push("exe");
+                }
+
                 if let Some(path) = rfd::FileDialog::new()
-                .add_filter("图片", &["png", "svg"])  //, "gif"])
+                .add_filter("图片", &valid_extension)  //, "gif"])
                 .pick_file() {
                     // 如果之前设置页面有图片，则尝试删除缓存
                     if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
                         self.icon_will_clean.push(icon_path);
                     }
-                    self.popups.link_config.icon_path = Some(path.display().to_string());
+
+                    let mut icon_path = path.display().to_string();
+
+                    #[cfg(target_os = "windows")]
+                    {
+                        if icon_path.ends_with(".exe") {
+                            icon_path = match self.save_exe_icon(icon_path.clone()) {
+                                Ok(icon_path) => icon_path,
+                                Err(e) => {
+                                    println!("保存图标失败: {}", e);
+                                    "读取exe图标失败".to_string()
+                                }
+                            };
+                        }
+                    }
+
+                    self.popups.link_config.icon_path = Some(icon_path);
                 }
             }
 

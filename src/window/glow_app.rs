@@ -1,6 +1,7 @@
 use crate::{event::UserEvent, window::GlutinWindowContext};
 use std::sync::Arc;
 use std::time::Duration;
+use log::debug;
 
 use crate::window;
 
@@ -47,7 +48,7 @@ impl GlowApp {
         &self,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> (GlutinWindowContext, glow::Context) {
-        println!("创建窗口");
+        debug!("创建窗口");
 
         let glutin_window_context = GlutinWindowContext::new(
             event_loop,
@@ -69,7 +70,7 @@ impl GlowApp {
 
 impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        println!("窗体恢复");
+        debug!("窗体恢复");
 
         let (gl_window, gl) = self.create_display(event_loop);
         let gl = std::sync::Arc::new(gl);
@@ -85,7 +86,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 update_ui.init(&egui_glow.egui_ctx);
             }
             None => {
-                println!("初始化失败");
+                debug!("初始化失败");
                 std::process::exit(1);
             }
         }
@@ -256,7 +257,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 }
             }
             UserEvent::HideWindow => {
-                println!("窗体关闭");
+                debug!("窗体关闭");
                 self.window_hidden = true;
                 if let Some(ref gl_window) = self.gl_window {
                     gl_window.window().set_visible(false);

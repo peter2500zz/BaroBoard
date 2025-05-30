@@ -6,6 +6,7 @@ mod resources;
 mod window;
 mod utils;
 mod texture_mgr;
+mod logging;
 
 use std::sync::{Arc, Mutex};  // Arc = 原子引用计数(Atomically Reference Counted)，一种线程安全的智能指针，允许在多个线程间共享所有权
 use egui_winit::winit;
@@ -13,13 +14,15 @@ use rdev::{listen, EventType, Key};
 use std::time::{Duration, Instant};
 use trayicon;
 use single_instance::SingleInstance;
+use log::{info, warn, error, debug, trace};
 
 use window::{event, glow_app};
 use my_structs::MyApp;
+use logging::init_logger;
 
 
 pub const WINDOW_SIZE: (f32, f32) = (800.0, 500.0);
-pub const PROGRAM_VERSION: &str = "v0.1.3-alpha.05";
+pub const PROGRAM_VERSION: &str = "v0.1.3-alpha.06";
 pub const CONFIG_FILE_VERSION: u32 = 5;
 pub const CONFIG_SAVE_PATH: &str = ".baro";
 pub const CONFIG_FILE_NAME: &str = "links.json";
@@ -27,10 +30,13 @@ pub const DOUBLE_ALT_COOLDOWN: u64 = 500;
 
 
 fn main() {
+    init_logger();
+    info!("BaroBoard 工具箱 {} 开始运行", PROGRAM_VERSION);
+
     let instance = SingleInstance::new("BaroBoard").unwrap();
     
     if !instance.is_single() {
-        println!("BaroBoard 已经在运行");
+        warn!("BaroBoard 已经在运行，将不会启动新的实例");
         return;
     }
 
@@ -68,6 +74,7 @@ fn main() {
                 match event.event_type {
                     EventType::KeyPress(key) => {
                         if let Key::Alt = key {
+                            trace!("侦测到Alt键按下");
                             // 检查是否在上次Alt释放后的限定秒内
                             let mut should_show = false;
                             {
@@ -75,7 +82,7 @@ fn main() {
                                 if let Some(time) = last_release {
                                     let elapsed = time.elapsed();
                                     if elapsed <= Duration::from_millis(DOUBLE_ALT_COOLDOWN) {
-                                        println!("Double Alt Detected, delay {:?}", elapsed);
+                                        debug!("侦测到双击Alt键，两次之间间隔 {:?}", elapsed);
                                         should_show = true;
                                     }
                                 }
@@ -97,6 +104,7 @@ fn main() {
                     },
                     EventType::KeyRelease(key) => {
                         if let Key::Alt = key {
+                        trace!("侦测到Alt键释放");
                             // 检查是否在冷却期内
                             let now = Instant::now();
                             if let Some(cooldown_time) = cooldown_until {

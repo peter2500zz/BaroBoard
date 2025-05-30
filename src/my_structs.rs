@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use std::sync::{Arc, Mutex};
 use std::process::Command;
+use log::{error, info, warn};
 
 use crate::pages::popups::Popups;
 use crate::window::{self, event::UserEvent};
@@ -124,10 +125,11 @@ impl MyApp {
 
         // 创建.baro文件夹
         if !std::path::Path::new(crate::CONFIG_SAVE_PATH).exists() {
+            warn!("配置文件夹 {} 不存在，尝试创建", crate::CONFIG_SAVE_PATH);
             match std::fs::create_dir_all(crate::CONFIG_SAVE_PATH) {
-                Ok(_) => println!("创建.baro文件夹成功"),
+                Ok(_) => info!("创建.baro文件夹成功"),
                 Err(e) => {
-                    println!("创建.baro文件夹失败: {}", e);
+                    error!("创建.baro文件夹失败: {}", e);
                     wont_save = true;
                 },
             }
@@ -327,10 +329,13 @@ impl MyApp {
         // 如果是个exe文件（仅限windows）
         #[cfg(target_os = "windows")]
         if path.ends_with(".exe") {
-            match self.save_exe_icon(path.clone()) {
-                Ok(_) => println!("保存图标成功"),
-                Err(e) => println!("保存图标失败: {}", e),
-            }
+            let icon_path = match self.save_exe_icon(path.clone()) {
+                Ok(icon_path) => icon_path,
+                Err(e) => {
+                    println!("保存图标失败: {}", e);
+                    "读取exe图标失败".to_string()
+                }
+            };
 
             let name = std::path::Path::new(&path).file_name().unwrap().to_str().unwrap().to_string();
             // 去掉.exe
@@ -338,7 +343,7 @@ impl MyApp {
 
             self.program_links.push(ProgramLink::new(
                 vec![name],
-                format!("{}/cache/exe_icon/{:x}.png", crate::CONFIG_SAVE_PATH, md5::compute(path.as_bytes())),
+                icon_path,
                 path.clone(),
                 Vec::new(),
                 HashSet::new(),
@@ -353,7 +358,6 @@ impl MyApp {
 
 impl window::App for MyApp {
     fn init(&mut self, ctx: &egui::Context) {
-        println!("初始化成功");
 
         #[cfg(target_os = "windows")]
         {
