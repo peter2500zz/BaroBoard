@@ -234,14 +234,22 @@ impl MyApp {
                             .insert(program.uuid.clone());
                         
                         let btn = Box::new(|ui: &mut egui::Ui| {
-                            if self.edit_mode {
+                            if !self.edit_mode {
                                 ui.style_mut().visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
                             };
 
-                            ui.add_sized(
+                            let hover_text = format!("{} {}", program.run_command, program.arguments.join(" "));
+
+                            let image_response = ui.add_sized(
                                 egui::vec2(96.0, 96.0),
                                 egui::ImageButton::new(format!("file://{}", &program.icon_path))
-                            )
+                            );
+
+                            if hover_text.trim().is_empty() {
+                                image_response.on_hover_text_at_pointer("这个快捷方式还没有运行命令")
+                            } else {
+                                image_response.on_hover_text_at_pointer(&hover_text)
+                            }
                         });
 
                         let enable_drag = self.edit_mode && !self.popups.called;
