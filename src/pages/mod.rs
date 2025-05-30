@@ -237,18 +237,9 @@ impl MyApp {
                                 ui.style_mut().visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
                             };
 
-                            
-                            let mut img_path = format!("file://{}", &program.icon_path);
-                            #[cfg(target_os = "windows")]
-                            {
-                                if program.icon_path.ends_with(".exe") {
-                                    img_path = format!("file://{}/cache/exe_icon/{:x}.png", crate::CONFIG_SAVE_PATH, md5::compute(program.icon_path.as_bytes()));
-                                }
-                            }
-
                             ui.add_sized(
                                 egui::vec2(96.0, 96.0),
-                                egui::ImageButton::new(img_path)
+                                egui::ImageButton::new(format!("file://{}", &program.icon_path))
                             )
                         });
 

@@ -199,7 +199,6 @@ impl MyApp {
 
                 #[cfg(target_os = "windows")]
                 {
-                    let icon_path = format!("{}/cache/exe_icon/{:x}.png", crate::CONFIG_SAVE_PATH, md5::compute(icon_path.as_bytes()));
                     match std::fs::remove_file(icon_path.clone()) {
                         Ok(_) => println!("删除缓存图片资源 {} 成功", icon_path),
                         Err(e) => println!("删除缓存图片资源 {} 失败: {}", icon_path, e),
@@ -333,9 +332,13 @@ impl MyApp {
                 Err(e) => println!("保存图标失败: {}", e),
             }
 
+            let name = std::path::Path::new(&path).file_name().unwrap().to_str().unwrap().to_string();
+            // 去掉.exe
+            let name = name.strip_suffix(".exe").unwrap_or(&name).to_string();
+
             self.program_links.push(ProgramLink::new(
-                vec![std::path::Path::new(&path).file_name().unwrap().to_str().unwrap().to_string()],
-                path.clone(),
+                vec![name],
+                format!("{}/cache/exe_icon/{:x}.png", crate::CONFIG_SAVE_PATH, md5::compute(path.as_bytes())),
                 path.clone(),
                 Vec::new(),
                 HashSet::new(),
@@ -343,6 +346,8 @@ impl MyApp {
                 true,
             ));
         }
+
+        self.save_conf();
     }
 }
 
