@@ -178,7 +178,7 @@ impl MyApp {
 
         if (!show && !should_close && self.popups.called) || should_close {
             debug!("配置文件不是JSON弹窗关闭");
-            // println!("*你* 关闭了对吧？");
+            // debug!("*你* 关闭了对吧？");
             // 用户关闭
             self.popups.called = false;
         }
@@ -232,7 +232,7 @@ impl MyApp {
 
         if (!show && !should_close && self.popups.called) || should_close {
             debug!("配置文件格式错误弹窗关闭");
-            // println!("*你* 关闭了对吧？");
+            // debug!("*你* 关闭了对吧？");
             // 用户关闭
             if should_auto_fix {
                 self.config_auto_fix();
@@ -288,7 +288,7 @@ impl MyApp {
 
         if (!show && !should_close && self.popups.called) || should_close {
             debug!("配置文件过旧弹窗关闭");
-            // println!("*你* 关闭了对吧？");
+            // debug!("*你* 关闭了对吧？");
             // 用户关闭
             
             self.popups.called = false;
@@ -338,7 +338,7 @@ impl MyApp {
                         .clicked() {
                             self.tags.insert(self.popups.tag_new.clone());
 
-                            println!("创建成功: {:?}", self.popups.tag_new);
+                            debug!("创建成功: {:?}", self.popups.tag_new);
 
                             should_save = true;
                             should_close = true;
@@ -356,7 +356,7 @@ impl MyApp {
 
         if (!show && !should_close && self.popups.called) || should_close {
             debug!("创建新标签弹窗关闭");
-            // println!("*你* 关闭了对吧？");
+            // debug!("*你* 关闭了对吧？");
             // 用户关闭
             self.popups.called = false;
 
@@ -403,7 +403,7 @@ impl MyApp {
                         .clicked() {
                             self.tags.remove(&self.popups.tag_to_delete);
 
-                            println!("删除成功: {:?}", self.popups.tag_to_delete);
+                            debug!("删除成功: {:?}", self.popups.tag_to_delete);
 
                             should_save = true;
                             should_close = true;
@@ -418,7 +418,7 @@ impl MyApp {
 
 
         if (!show && !should_close && self.popups.called) || should_close {
-            println!("*你* 关闭了对吧？");
+            debug!("*你* 关闭了对吧？");
             // 用户关闭
             self.popups.called = false;
 
@@ -479,7 +479,7 @@ impl MyApp {
 
                             let name = program_links[current_index].name.clone();
                             program_links.remove(current_index);
-                            println!("删除成功: {:?}", name);
+                            debug!("删除成功: {:?}", name);
 
                             should_save = true;
                             should_close = true;
@@ -495,7 +495,7 @@ impl MyApp {
 
         if (!show && !should_close && self.popups.called) || should_close {
             debug!("删除快捷方式弹窗关闭");
-            // println!("*你* 关闭了对吧？");
+            // debug!("*你* 关闭了对吧？");
             // 用户关闭
             self.popups.called = false;
 
@@ -636,7 +636,7 @@ impl MyApp {
         let (program_links, tags) = match serde_json::from_value::<crate::pages::popups::link::save::LinkConfigSchema>(crate::pages::popups::link::save::load_conf(crate::CONFIG_FILE_NAME).unwrap()) {
             Ok(links_config) => (links_config.program_links, links_config.tags),
             Err(e) => {
-                println!("读取配置文件失败: {}", e);
+                debug!("读取配置文件失败: {}", e);
                 self.popups.config_file_format_error();
                 (Vec::new(), HashSet::new())
             }
@@ -656,9 +656,9 @@ impl MyApp {
                 , 
                 self.tags.clone()
             ) {
-                Ok(_) => println!("保存成功"),
+                Ok(_) => debug!("保存成功"),
                 Err(e) => {
-                    println!("保存失败: {}", e);
+                    debug!("保存失败: {}", e);
                     self.popups.cannot_save();
                 },
             }

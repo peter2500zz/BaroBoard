@@ -1,6 +1,7 @@
 use egui;
 use std::collections::HashSet;
 use rfd;
+use log::debug;
 
 use crate::my_structs::*;
 
@@ -122,7 +123,7 @@ impl MyApp {
                             icon_path = match self.save_exe_icon(icon_path.clone()) {
                                 Ok(icon_path) => icon_path,
                                 Err(e) => {
-                                    println!("保存图标失败: {}", e);
+                                    debug!("保存图标失败: {}", e);
                                     "读取exe图标失败".to_string()
                                 }
                             };
@@ -339,7 +340,7 @@ impl MyApp {
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
                     if ui.button("高级选项 ⚙").clicked() {
-                        println!("打开高级选项");
+                        debug!("打开高级选项");
                         self.popups.link_config.show_advanced_config = true;
                     }
                 });
@@ -485,7 +486,7 @@ impl MyApp {
 
         if (!show && !should_close && self.popups.called) || should_close {
             // 只有在窗口还是打开状态时才执行清理
-            println!("*你* 关闭了对吧？");
+            debug!("*你* 关闭了对吧？");
             // 用户关闭
             self.popups.called = false;
             self.popups.link_config.show_args_config = false;

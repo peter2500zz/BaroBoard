@@ -14,7 +14,7 @@ use rdev::{listen, EventType, Key};
 use std::time::{Duration, Instant};
 use trayicon;
 use single_instance::SingleInstance;
-use log::{info, warn, error, debug, trace};
+use log::{info, warn, debug, trace};
 
 use window::{event, glow_app};
 use my_structs::MyApp;
@@ -22,7 +22,7 @@ use logging::init_logger;
 
 
 pub const WINDOW_SIZE: (f32, f32) = (800.0, 500.0);
-pub const PROGRAM_VERSION: &str = "v0.1.3-alpha.06";
+pub const PROGRAM_VERSION: &str = "v0.1.3-alpha.07";
 pub const CONFIG_FILE_VERSION: u32 = 5;
 pub const CONFIG_SAVE_PATH: &str = ".baro";
 pub const CONFIG_FILE_NAME: &str = "links.json";
@@ -98,7 +98,7 @@ fn main() {
                                 cooldown_until = Some(Instant::now() + Duration::from_millis(DOUBLE_ALT_COOLDOWN));
                             }
                         } else {
-                            // println!("其他键释放");
+                            // debug!("其他键释放");
                             last_alt_release = None;
                         }
                     },
@@ -116,7 +116,7 @@ fn main() {
                             // 不在冷却期内，记录Alt键释放的时间
                             last_alt_release = Some(now);
                         } else {
-                            // println!("其他键释放");
+                            // debug!("其他键释放");
                             last_alt_release = None;
                         }
                     },

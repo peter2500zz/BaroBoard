@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use std::sync::{Arc, Mutex};
 use std::process::Command;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 
 use crate::pages::popups::Popups;
 use crate::window::{self, event::UserEvent};
@@ -162,7 +162,7 @@ impl MyApp {
                 }
             },
             Err(e) => {
-                println!("{}", e);
+                debug!("{}", e);
                 // 检查文件是否存在
                 if std::path::Path::new(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str()).exists() {
                     proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
@@ -194,7 +194,7 @@ impl MyApp {
     pub fn clean_unused_icon(&mut self, ctx: &egui::Context) {
         for icon_path in self.icon_will_clean.iter() {
             if self.cached_icon.get(icon_path).map_or(true, |set| set.is_empty()) {
-                println!("释放图片资源 {}", icon_path);
+                debug!("释放图片资源 {}", icon_path);
                 ctx.forget_image(&format!("file://{}", icon_path));
                 // ctx.forget_all_images();
                 self.cached_icon.remove(icon_path);
@@ -202,12 +202,12 @@ impl MyApp {
                 #[cfg(target_os = "windows")]
                 {
                     match std::fs::remove_file(icon_path.clone()) {
-                        Ok(_) => println!("删除缓存图片资源 {} 成功", icon_path),
-                        Err(e) => println!("删除缓存图片资源 {} 失败: {}", icon_path, e),
+                        Ok(_) => debug!("删除缓存图片资源 {} 成功", icon_path),
+                        Err(e) => debug!("删除缓存图片资源 {} 失败: {}", icon_path, e),
                     }
                 }
             } else {
-                println!("图片仍在被使用，将不会释放 {}", icon_path);
+                debug!("图片仍在被使用，将不会释放 {}", icon_path);
             }
         }
         self.icon_will_clean.clear();
@@ -223,7 +223,7 @@ impl MyApp {
         let program_name = program_link.name.get(0);
         
         if command.is_empty() {
-            println!("{} 运行失败: 命令为空", program_name.unwrap_or(&"".to_string()));
+            debug!("{} 运行失败: 命令为空", program_name.unwrap_or(&"".to_string()));
             return;
         }
 
@@ -280,9 +280,9 @@ impl MyApp {
             };
 
             match result {
-                Ok(_) => println!("{} 运行成功", program_name.unwrap_or(&"".to_string())),
+                Ok(_) => debug!("{} 运行成功", program_name.unwrap_or(&"".to_string())),
                 Err(e) => {
-                    println!("{} 运行失败: {}", program_name.unwrap_or(&"".to_string()), e);
+                    debug!("{} 运行失败: {}", program_name.unwrap_or(&"".to_string()), e);
                 },
             }
         }
@@ -332,7 +332,7 @@ impl MyApp {
             let icon_path = match self.save_exe_icon(path.clone()) {
                 Ok(icon_path) => icon_path,
                 Err(e) => {
-                    println!("保存图标失败: {}", e);
+                    debug!("保存图标失败: {}", e);
                     "读取exe图标失败".to_string()
                 }
             };
@@ -357,15 +357,14 @@ impl MyApp {
 }
 
 impl window::App for MyApp {
-    fn init(&mut self, ctx: &egui::Context) {
-
+    fn init(&mut self) {
         #[cfg(target_os = "windows")]
         {
             for program_link in self.program_links.iter() {
                 if program_link.icon_path.ends_with(".exe") {
                     match self.save_exe_icon(program_link.icon_path.clone()) {
-                        Ok(_) => println!("保存图标成功"),
-                        Err(e) => println!("保存图标失败: {}", e),
+                        Ok(_) => debug!("保存图标成功"),
+                        Err(e) => debug!("保存图标失败: {}", e),
                     }
                 }
             }
@@ -403,7 +402,7 @@ impl window::App for MyApp {
 
 impl Drop for MyApp {
     fn drop(&mut self) {
-        println!("MyApp 被销毁");
+        debug!("MyApp 被销毁");
     }
 }
 

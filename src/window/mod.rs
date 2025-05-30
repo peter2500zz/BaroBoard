@@ -7,7 +7,7 @@ use log::debug;
 
 pub trait App {
     // 初始化
-    fn init(&mut self, ctx: &egui::Context);
+    fn init(&mut self);
 
     // 更新
     fn update(&mut self, ctx: &egui::Context);

@@ -83,7 +83,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
         self.update_ui = Some(self.set_up.as_mut()(&egui_glow.egui_ctx));
         match self.update_ui.as_mut() {
             Some(update_ui) => {
-                update_ui.init(&egui_glow.egui_ctx);
+                update_ui.init();
             }
             None => {
                 debug!("初始化失败");
@@ -218,7 +218,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
         }
 
         // if let WindowEvent::KeyboardInput { device_id, event, is_synthetic } = &event {
-        //     println!("键盘输入: {:?}", event);
+        //     debug!("键盘输入: {:?}", event);
         // }
 
         if let winit::event::WindowEvent::Resized(physical_size) = &event {
