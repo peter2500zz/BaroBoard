@@ -110,8 +110,6 @@ pub struct MyApp {
     pub edit_mode: bool,
     // 是否有悬浮文件
     pub is_hover_file: Option<String>,
-    // 释放的悬浮文件路径
-    pub hover_file: Option<String>,
 
     // 被唤起
     pub called: Arc<Mutex<bool>>,
@@ -122,9 +120,22 @@ impl MyApp {
         called: Arc<Mutex<bool>>,
         proxy: winit::event_loop::EventLoopProxy<UserEvent>
     ) -> Self {
+        let mut wont_save = false;
+
+        // 创建.baro文件夹
+        if !std::path::Path::new(crate::CONFIG_SAVE_PATH).exists() {
+            match std::fs::create_dir_all(crate::CONFIG_SAVE_PATH) {
+                Ok(_) => println!("创建.baro文件夹成功"),
+                Err(e) => {
+                    println!("创建.baro文件夹失败: {}", e);
+                    wont_save = true;
+                },
+            }
+        }
+
         let mut popup = Popups::new();
 
-        let links_config = crate::pages::popups::link::save::load_conf(crate::CONFIG_FILE_NAME);
+        let links_config = crate::pages::popups::link::save::load_conf(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str());
 
         let (program_links, tags) =  match links_config {
             Ok(links_config) => {
@@ -151,7 +162,7 @@ impl MyApp {
             Err(e) => {
                 println!("{}", e);
                 // 检查文件是否存在
-                if std::path::Path::new(crate::CONFIG_FILE_NAME).exists() {
+                if std::path::Path::new(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str()).exists() {
                     proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
                     popup.config_file_format_error();
                 }
@@ -174,8 +185,7 @@ impl MyApp {
             called: called,
             edit_mode: false,
             is_hover_file: None,
-            hover_file: None,
-            wont_save: false,
+            wont_save: wont_save,
         }
     }
 
@@ -186,6 +196,15 @@ impl MyApp {
                 ctx.forget_image(&format!("file://{}", icon_path));
                 // ctx.forget_all_images();
                 self.cached_icon.remove(icon_path);
+
+                #[cfg(target_os = "windows")]
+                {
+                    let icon_path = format!("{}/cache/exe_icon/{:x}.png", crate::CONFIG_SAVE_PATH, md5::compute(icon_path.as_bytes()));
+                    match std::fs::remove_file(icon_path.clone()) {
+                        Ok(_) => println!("删除缓存图片资源 {} 成功", icon_path),
+                        Err(e) => println!("删除缓存图片资源 {} 失败: {}", icon_path, e),
+                    }
+                }
             } else {
                 println!("图片仍在被使用，将不会释放 {}", icon_path);
             }
@@ -299,11 +318,49 @@ impl MyApp {
             );
         }
     }
+
+    fn create_link_by_hover_file(&mut self, path: String) {
+        // 如果是个目录或者文件不存在
+        if std::path::Path::new(&path).is_dir() || !std::path::Path::new(&path).exists() {
+            return;
+        }
+
+        // 如果是个exe文件（仅限windows）
+        #[cfg(target_os = "windows")]
+        if path.ends_with(".exe") {
+            match self.save_exe_icon(path.clone()) {
+                Ok(_) => println!("保存图标成功"),
+                Err(e) => println!("保存图标失败: {}", e),
+            }
+
+            self.program_links.push(ProgramLink::new(
+                vec![std::path::Path::new(&path).file_name().unwrap().to_str().unwrap().to_string()],
+                path.clone(),
+                path.clone(),
+                Vec::new(),
+                HashSet::new(),
+                false,
+                true,
+            ));
+        }
+    }
 }
 
 impl window::App for MyApp {
     fn init(&mut self, ctx: &egui::Context) {
         println!("初始化成功");
+
+        #[cfg(target_os = "windows")]
+        {
+            for program_link in self.program_links.iter() {
+                if program_link.icon_path.ends_with(".exe") {
+                    match self.save_exe_icon(program_link.icon_path.clone()) {
+                        Ok(_) => println!("保存图标成功"),
+                        Err(e) => println!("保存图标失败: {}", e),
+                    }
+                }
+            }
+        }
     }
 
     fn update(&mut self, ctx: &egui::Context) {
@@ -330,7 +387,8 @@ impl window::App for MyApp {
 
     // 文件释放
     fn on_file_dropped(&mut self, path: String) {
-        self.hover_file = Some(path);
+        self.is_hover_file = None;
+        self.create_link_by_hover_file(path);
     }
 }
 

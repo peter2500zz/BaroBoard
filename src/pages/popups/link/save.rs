@@ -22,7 +22,7 @@ impl Default for LinkConfigSchema {
 }
 
 pub fn save_conf(program_links: Vec<ProgramLink>, tags: HashSet<String>) -> Result<(), std::io::Error> {
-    save_conf_to_path(program_links, tags, crate::CONFIG_FILE_NAME)
+    save_conf_to_path(program_links, tags, format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str())
 }
 
 
