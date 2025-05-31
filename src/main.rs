@@ -22,7 +22,7 @@ use logging::init_logger;
 
 
 pub const WINDOW_SIZE: (f32, f32) = (800.0, 500.0);
-pub const PROGRAM_VERSION: &str = "v0.1.3-alpha.07";
+pub const PROGRAM_VERSION: &str = "v0.1.3";
 pub const CONFIG_FILE_VERSION: u32 = 5;
 pub const CONFIG_SAVE_PATH: &str = ".baro";
 pub const CONFIG_FILE_NAME: &str = "links.json";
@@ -61,6 +61,10 @@ fn main() {
     let called = Arc::new(Mutex::new(true));
     let called_clone = called.clone();
 
+    // 是否允许双击呼出
+    let all_by_double_alt = Arc::new(Mutex::new(true));
+    let all_by_double_alt_clone = all_by_double_alt.clone();
+
     rt.spawn(async move {
         // loop {
             let proxy_clone_loop = proxy_clone.clone();
@@ -89,7 +93,7 @@ fn main() {
                             }
                             
                             // 如果应该显示，则发送事件
-                            if should_show {
+                            if should_show && *all_by_double_alt_clone.lock().unwrap() {
                                 *called_clone_loop.lock().unwrap() = true;
                                 proxy_clone_loop
                                     .send_event(event::UserEvent::ShowWindow)
@@ -161,6 +165,7 @@ fn main() {
     .menu(
         trayicon::MenuBuilder::new()
         .item("显示工具箱", event::UserEvent::ShowWindow)
+        .checkable("双击呼出", *all_by_double_alt.lock().unwrap(), event::UserEvent::ChangeDoubleAlt)
         .item("退出", event::UserEvent::Exit)
     )
 
@@ -170,6 +175,7 @@ fn main() {
     // 创建主应用程序
     let proxy_clone_app = proxy.clone();
     let mut app = glow_app::GlowApp::new(
+        all_by_double_alt,
         winit_window_builder,
         tray_icon,
         proxy.clone(),

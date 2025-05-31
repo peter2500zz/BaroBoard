@@ -10,6 +10,7 @@ pub enum UserEvent {
     // 托盘相关
     LeftClickTrayIcon,
     RightClickTrayIcon,
+    ChangeDoubleAlt,
 
     // 文件相关
     FileHovered(String),
