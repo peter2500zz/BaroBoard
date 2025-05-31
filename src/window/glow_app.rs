@@ -1,11 +1,14 @@
 use crate::{event::UserEvent, window::GlutinWindowContext};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use log::debug;
 
 use crate::window;
 
 
 pub struct GlowApp {
+    call_by_double_alt: Arc<Mutex<bool>>,
+    tray_icon: trayicon::TrayIcon<UserEvent>,
     proxy: winit::event_loop::EventLoopProxy<UserEvent>,
     gl_window: Option<GlutinWindowContext>,
     gl: Option<Arc<glow::Context>>,
@@ -21,11 +24,15 @@ pub struct GlowApp {
 
 impl GlowApp {
     pub fn new(
+        call_by_double_alt: Arc<Mutex<bool>>,
         winit_window_builder: winit::window::WindowAttributes,
+        tray_icon: trayicon::TrayIcon<UserEvent>,
         proxy: winit::event_loop::EventLoopProxy<UserEvent>,
         set_up: Box<dyn Fn(&egui::Context) -> Box<dyn window::App> + Send + Sync + 'static>,
     ) -> Self {
         Self {
+            call_by_double_alt,
+            tray_icon,
             proxy,
             gl_window: None,
             gl: None,
@@ -44,6 +51,8 @@ impl GlowApp {
         &self,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> (GlutinWindowContext, glow::Context) {
+        debug!("创建窗口");
+
         let glutin_window_context = GlutinWindowContext::new(
             event_loop,
             self.winit_window_builder.clone(),
@@ -64,7 +73,7 @@ impl GlowApp {
 
 impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        println!("窗体恢复");
+        debug!("窗体恢复");
 
         let (gl_window, gl) = self.create_display(event_loop);
         let gl = std::sync::Arc::new(gl);
@@ -75,6 +84,15 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
         // 初始化部分
 
         self.update_ui = Some(self.set_up.as_mut()(&egui_glow.egui_ctx));
+        match self.update_ui.as_mut() {
+            Some(update_ui) => {
+                update_ui.init();
+            }
+            None => {
+                debug!("初始化失败");
+                std::process::exit(1);
+            }
+        }
 
         let event_loop_proxy = egui::mutex::Mutex::new(self.proxy.clone());
         egui_glow
@@ -178,6 +196,22 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
             return;
         }
 
+        if let WindowEvent::HoveredFile(path) = &event {
+            self.proxy
+                .send_event(UserEvent::FileHovered(path.to_string_lossy().to_string()))
+                .unwrap();
+        } else if let WindowEvent::HoveredFileCancelled = &event {
+            self.proxy
+                .send_event(UserEvent::FileHoverCancelled)
+                .unwrap();
+        }
+
+        if let WindowEvent::DroppedFile(path) = &event {
+            self.proxy
+                .send_event(UserEvent::FileDropped(path.to_string_lossy().to_string()))
+                .unwrap();
+        }
+
         if matches!(event, WindowEvent::RedrawRequested) {
             // 只有在窗口可见时才执行重绘
             if !self.window_hidden {
@@ -187,7 +221,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
         }
 
         // if let WindowEvent::KeyboardInput { device_id, event, is_synthetic } = &event {
-        //     println!("键盘输入: {:?}", event);
+        //     debug!("键盘输入: {:?}", event);
         // }
 
         if let winit::event::WindowEvent::Resized(physical_size) = &event {
@@ -209,6 +243,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
     // !注意: 用户事件处理器
     fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: UserEvent) {
         match event {
+            // 窗体行为
             UserEvent::Redraw(delay) => {
                 self.repaint_delay = delay;
                 // 如果窗口隐藏状态，不需要频繁重绘
@@ -225,7 +260,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 }
             }
             UserEvent::HideWindow => {
-                println!("窗体关闭");
+                debug!("窗体关闭");
                 self.window_hidden = true;
                 if let Some(ref gl_window) = self.gl_window {
                     gl_window.window().set_visible(false);
@@ -233,6 +268,42 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 // 窗口隐藏时，设置为等待模式，避免频繁唤醒
                 event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
             }
+            UserEvent::Exit => {
+                std::process::exit(0);
+            }
+
+            // 托盘相关
+            UserEvent::LeftClickTrayIcon => {
+                self.proxy.send_event(UserEvent::ShowWindow).unwrap();
+            }
+            UserEvent::RightClickTrayIcon => {
+                self.tray_icon.show_menu().unwrap();
+            }
+            UserEvent::ChangeDoubleAlt => {
+                // self.is_checked = is_checked;
+                let mut call_by_double_alt = self.call_by_double_alt.lock().unwrap();
+                *call_by_double_alt = !*call_by_double_alt;
+                self.tray_icon.set_menu_item_checkable(UserEvent::ChangeDoubleAlt, *call_by_double_alt).unwrap();
+                debug!("是否双击呼出: {}", *call_by_double_alt);
+            }
+
+            // 文件相关
+            UserEvent::FileHovered(path) => {
+                if let Some(update_ui) = self.update_ui.as_mut() {
+                    update_ui.on_file_hovered(path);
+                }
+            }
+            UserEvent::FileHoverCancelled => {
+                if let Some(update_ui) = self.update_ui.as_mut() {
+                    update_ui.on_file_hover_cancelled();
+                }
+            }
+            UserEvent::FileDropped(path) => {
+                if let Some(update_ui) = self.update_ui.as_mut() {
+                    update_ui.on_file_dropped(path);
+                }
+            }
+
         }
     }
 

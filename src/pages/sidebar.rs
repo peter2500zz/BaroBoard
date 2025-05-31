@@ -42,7 +42,7 @@ impl MyApp {
             if self.edit_mode {
                 if ui.button("➕").clicked() {
                     if !self.popups.called {
-                        println!("添加标签");
+                        // debug!("添加标签");
                         self.popups.new_tag();
                     }
                 }

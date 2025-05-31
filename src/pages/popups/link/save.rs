@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Read, io::Write};
 use std::collections::HashSet;
+use log::info;
 
 use crate::my_structs::*;
 
@@ -22,7 +23,7 @@ impl Default for LinkConfigSchema {
 }
 
 pub fn save_conf(program_links: Vec<ProgramLink>, tags: HashSet<String>) -> Result<(), std::io::Error> {
-    save_conf_to_path(program_links, tags, crate::CONFIG_FILE_NAME)
+    save_conf_to_path(program_links, tags, format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str())
 }
 
 
@@ -36,6 +37,7 @@ pub fn save_conf_to_path(program_links: Vec<ProgramLink>, tags: HashSet<String>,
     let serialized = serde_json::to_string_pretty(&links_config)?;
     let mut file = File::create(path)?;
     file.write_all(serialized.as_bytes())?;
+    info!("保存配置文件: {}", path);
     Ok(())
 }
 
@@ -47,5 +49,6 @@ pub fn load_conf(path: &str) -> Result<serde_json::Value, std::io::Error> {
 
     let links_config: serde_json::Value = serde_json::from_str(&buffer)?;
 
+    info!("加载配置文件: {}", path);
     Ok(links_config)
 }

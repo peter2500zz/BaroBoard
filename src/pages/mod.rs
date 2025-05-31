@@ -2,7 +2,7 @@ pub mod popups;
 mod sidebar;
 
 use egui;
-use std::process::Command;
+use log::{debug, info};
 use std::collections::HashSet;
 use strsim::jaro_winkler;
 use pinyin::ToPinyin;
@@ -25,7 +25,28 @@ impl MyApp {
                     ui.horizontal_wrapped(|ui| {
                         
                         ui.with_layout(egui::Layout::centered_and_justified(egui::Direction::LeftToRight), |ui| {
-                            ui.heading(egui::RichText::new(&self.title));
+                            ui.heading(egui::RichText::new(&self.title))
+                            .context_menu(|ui| {
+
+                                if ui.button("自身信息").clicked() {
+                                    info!("{:?}", self);
+                                }
+
+                                if ui.button("所有快捷方式").clicked() {
+                                    info!("{:?}", self.program_links);
+                                }
+                                if ui.button("已缓存的图片").clicked() {
+                                    info!("{:?}", self.cached_icon);
+                                }
+
+                                if ui.button("隐藏").clicked() {
+                                    self.hide_window();
+                                }
+
+                                if ui.button("获取图标").clicked() {
+                                    crate::utils::windows_utils::get_icon_from_exe("C:\\Windows\\System32\\notepad.exe").unwrap();
+                                }
+                            });
                             
                         });
                         if self.wont_save {
@@ -42,21 +63,7 @@ impl MyApp {
                                 ;
                             });
                         }
-                    }).response
-                    
-                    .context_menu(|ui| {
-
-                        if ui.button("所有快捷方式").clicked() {
-                            println!("{:?}", self.program_links);
-                        }
-                        if ui.button("已缓存的图片").clicked() {
-                            println!("{:?}", self.cached_icon);
-                        }
-
-                        if ui.button("隐藏").clicked() {
-                            self.hide_window();
-                        }
-                    });
+                    })
                 });
 
                 ui.vertical_centered(|ui: &mut egui::Ui| {
@@ -121,13 +128,8 @@ impl MyApp {
                                 search_text.lost_focus()
                             {
                                 
-                                println!("选中的程序: {} 权重: {}", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string()), results[0].1);
-                                match Command::new(&self.sorted_program_links[0].run_command).spawn() {
-                                    Ok(_) => println!("{} 运行成功", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string())),
-                                    Err(e) => {
-                                        println!("{} 运行失败: {}", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string()), e);
-                                    },
-                                }
+                                info!("选中: {} 权重: {}", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string()), results[0].1);
+                                self.run_program(self.sorted_program_links[0].clone());
                                 self.search_text = "".to_string();
 
                                 self.hide_window();
@@ -232,13 +234,22 @@ impl MyApp {
                             .insert(program.uuid.clone());
                         
                         let btn = Box::new(|ui: &mut egui::Ui| {
-                            if self.edit_mode {
+                            if !self.edit_mode {
                                 ui.style_mut().visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
                             };
-                            ui.add_sized(
+
+                            let hover_text = format!("{} {}", program.run_command, program.arguments.join(" "));
+
+                            let image_response = ui.add_sized(
                                 egui::vec2(96.0, 96.0),
                                 egui::ImageButton::new(format!("file://{}", &program.icon_path))
-                            )
+                            );
+
+                            if hover_text.trim().is_empty() {
+                                image_response.on_hover_text_at_pointer("这个快捷方式还没有运行命令")
+                            } else {
+                                image_response.on_hover_text_at_pointer(&hover_text)
+                            }
                         });
 
                         let enable_drag = self.edit_mode && !self.popups.called;
@@ -288,7 +299,7 @@ impl MyApp {
                                     
                                     drag_to = Some(target_index);
 
-                                    println!("由于拖拽 尝试保存");
+                                    debug!("由于拖拽 尝试保存");
                                     should_save = true;
                                 }
                             }
@@ -297,17 +308,11 @@ impl MyApp {
                         if !self.popups.called {
                             if self.edit_mode && response.clicked() {
                                 // 打开设置窗口
-                                self.popups.config_existing_link(LinkPosition::new(link_index), program);
+                                self.popups.config_existing_link(LinkPosition::new(absolute_index), program);
 
                             } else {
                                 if response.clicked() {
-                                    match Command::new(&program.run_command).spawn() {
-                                        Ok(_) => println!("{} 运行成功", program.name.get(0).unwrap_or(&"".to_string())),
-                                        Err(e) => {
-                                            println!("{} 运行失败: {}", program.name.get(0).unwrap_or(&"".to_string()), e);
-                                            
-                                        },
-                                    }
+                                    self.run_program(program.clone());
                                 }
                                 
                                 // 右键点击图标，显示上下文菜单
@@ -325,24 +330,18 @@ impl MyApp {
         
                                     if ui.button("运行")
                                     .clicked() {
-                                        match Command::new(&program.run_command).spawn() {
-                                            Ok(_) => println!("{} 运行成功", program.name.get(0).unwrap_or(&"".to_string())),
-                                            Err(e) => {
-                                                println!("{} 运行失败: {}", program.name.get(0).unwrap_or(&"".to_string()), e);
-                                                
-                                            },
-                                        }
+                                        self.run_program(program.clone());
 
                                         ui.close_menu();
                                     }
                                     if ui.button("编辑").clicked() {
-                                        self.popups.config_existing_link(LinkPosition::new(link_index), program);
+                                        self.popups.config_existing_link(LinkPosition::new(absolute_index), program);
                                         ui.close_menu();
                                     }
                                     
                                     if ui.button("删除")
                                     .clicked() {
-                                        self.popups.delete_link(LinkPosition::new(link_index));
+                                        self.popups.delete_link(LinkPosition::new(absolute_index));
                                         // self.delete_link(link_index);
                                         
                                         ui.close_menu();

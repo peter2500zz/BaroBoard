@@ -1,10 +1,16 @@
 use egui;
 use std::collections::HashSet;
 use rfd;
+use log::debug;
 
 use crate::my_structs::*;
 
+/// 表示参数在列表中的索引位置
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ArgumentIndex(usize);
 
+/// 快捷方式配置
+#[derive(Debug)]
 pub struct LinkConfig {
     is_new_link: bool,
     
@@ -14,7 +20,15 @@ pub struct LinkConfig {
     pub name: String,
     pub icon_path: Option<String>,
     pub run_command: String,
+    pub arguments: Vec<String>,
     pub tags: HashSet<String>,
+    pub is_admin: bool,
+    pub is_new_window: bool,
+
+    // 子窗口配置
+    show_args_config: bool,
+    args_scroll_to_bottom: bool,
+    show_advanced_config: bool,
 }
 
 impl LinkConfig {
@@ -25,7 +39,14 @@ impl LinkConfig {
             name: "".to_string(),
             icon_path: None,
             run_command: "".to_string(),
+            arguments: Vec::new(),
             tags: HashSet::new(),
+            is_admin: false,
+            is_new_window: true,
+
+            show_args_config: false,
+            args_scroll_to_bottom: false,
+            show_advanced_config: false,
         }
     }
 
@@ -37,17 +58,16 @@ impl LinkConfig {
         self.name = link.name.clone().join("/");
         self.icon_path = Some(link.icon_path.clone());
         self.run_command = link.run_command.clone();
+        self.arguments = link.arguments.clone();
         self.tags = HashSet::from_iter(link.tags.clone());
+        self.is_admin = link.is_admin;
+        self.is_new_window = link.is_new_window;
     }
 
     
     pub fn config_new_link(&mut self) {
+        *self = Self::new();
         self.is_new_link = true;
-
-        self.name = "".to_string();
-        self.icon_path = None;
-        self.run_command = "".to_string();
-        self.tags = HashSet::new();
     }
 }
 
@@ -67,7 +87,8 @@ impl MyApp {
         })
         .collapsible(false)
         .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+        .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
+        // .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
         
         .fade_in(true)
         .fade_out(true)
@@ -80,14 +101,36 @@ impl MyApp {
                 egui::ImageButton::new(format!("file://{}", &self.popups.link_config.icon_path.clone().unwrap_or("你还没有添加任何图片！".to_string())))
             ).clicked() {
                 
+                let mut valid_extension = vec!["png", "svg"];
+                #[cfg(target_os = "windows")]
+                {
+                    valid_extension.push("exe");
+                }
+
                 if let Some(path) = rfd::FileDialog::new()
-                .add_filter("图片", &["png", "svg"])  //, "gif"])
+                .add_filter("图片", &valid_extension)  //, "gif"])
                 .pick_file() {
                     // 如果之前设置页面有图片，则尝试删除缓存
                     if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
                         self.icon_will_clean.push(icon_path);
                     }
-                    self.popups.link_config.icon_path = Some(path.display().to_string());
+
+                    let mut icon_path = path.display().to_string();
+
+                    #[cfg(target_os = "windows")]
+                    {
+                        if icon_path.ends_with(".exe") {
+                            icon_path = match self.save_exe_icon(icon_path.clone()) {
+                                Ok(icon_path) => icon_path,
+                                Err(e) => {
+                                    debug!("保存图标失败: {}", e);
+                                    "读取exe图标失败".to_string()
+                                }
+                            };
+                        }
+                    }
+
+                    self.popups.link_config.icon_path = Some(icon_path);
                 }
             }
 
@@ -117,13 +160,145 @@ impl MyApp {
                 ;
             });
 
+
+            egui::Window::new("参数配置")
+            .collapsible(false)
+            .resizable(false)
+            .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
+            .open(&mut self.popups.link_config.show_args_config)
+            .show(ui.ctx(), |ui| {
+                let mut has_empty_argument = false;
+
+                egui::ScrollArea::vertical()
+                .max_height(256.)
+                .show(ui, |ui| {
+                // ui.vertical(|ui| {
+                    let mut index_should_remove: Option<usize> = None;
+                    let mut drag_from = None;
+                    let mut drag_to = None;
+
+                    for (index, _) in self.popups.link_config.arguments.clone().iter().enumerate() {
+                        let response = ui.horizontal(|ui| {
+                            // 只让标签部分可拖拽
+                            let drag_response = ui.dnd_drag_source(
+                                egui::Id::new(format!("arg_{}", index)), 
+                                ArgumentIndex(index), 
+                                |ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new(format!("☰ 参数 {}", index + 1)));
+                                    });
+                                }
+                            ).response;
+                            
+                            // 输入框和按钮在拖拽区域外
+                            if self.popups.link_config.arguments[index].is_empty() {
+                                has_empty_argument = true;
+                            }
+
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.popups.link_config.arguments[index])
+                                .hint_text("e.g. --name=John")
+                            );
+                            if ui.button("➖").clicked() {
+                                index_should_remove = Some(index);
+                            }
+                            
+                            drag_response
+                        }).inner;
+
+                        // 检查是否有拖拽悬停在当前项目上
+                        if let (Some(pointer), Some(_)) = (
+                            ui.input(|i| i.pointer.interact_pos()),
+                            response.dnd_hover_payload::<ArgumentIndex>(),
+                        ) {
+                            // 获取当前项目的矩形区域
+                            let rect = response.rect;
+                            
+                            // 创建线条样式
+                            let stroke = egui::Stroke::new(2.0, egui::Color32::from_rgb(100, 100, 255));
+                            
+                            // 根据鼠标位置确定插入位置（上方或下方）
+                            if pointer.y < rect.center().y {
+                                // 在上方绘制水平线
+                                ui.painter().hline(rect.x_range(), rect.top(), stroke);
+                            } else {
+                                // 在下方绘制水平线
+                                ui.painter().hline(rect.x_range(), rect.bottom(), stroke);
+                            }
+                            
+                            // 检查是否释放了拖拽
+                            if let Some(dragged_index) = response.dnd_release_payload::<ArgumentIndex>() {
+                                // 记录拖拽源和目标
+                                drag_from = Some(dragged_index.0);
+                                
+                                // 根据鼠标位置确定是插入到上方还是下方
+                                let target_index = if pointer.y < rect.center().y {
+                                    index
+                                } else {
+                                    index + 1
+                                };
+                                
+                                drag_to = Some(target_index);
+                            }
+                        }
+                    }
+
+                    // 处理拖拽重排
+                    if let (Some(from_idx), Some(to_idx)) = (drag_from, drag_to) {
+                        if from_idx != to_idx {
+                            // 先移除源项目
+                            let argument = self.popups.link_config.arguments.remove(from_idx);
+                            
+                            // 调整目标索引（如果源在目标之前）
+                            let adjusted_to_idx = if from_idx < to_idx {
+                                to_idx - 1
+                            } else {
+                                to_idx
+                            };
+                            
+                            // 插入到目标位置
+                            self.popups.link_config.arguments.insert(adjusted_to_idx, argument);
+                        }
+                    }
+
+                    if let Some(index) = index_should_remove {
+                        self.popups.link_config.arguments.remove(index);
+                    }
+
+                    if self.popups.link_config.args_scroll_to_bottom {
+                        ui.scroll_to_cursor(Some(egui::Align::BOTTOM));
+                        self.popups.link_config.args_scroll_to_bottom = false;
+                    }
+                });
+
+                ui.horizontal(|ui| {
+                    if self.popups.link_config.arguments.is_empty() {
+                        ui.label(egui::RichText::new(
+                            "这个快捷方式还没有任何参数"
+                        ).weak());
+                    } else if has_empty_argument {
+                        ui.label(egui::RichText::new(
+                            "⚠ 你似乎有一些空参数，如果是刻意为之，请无视此警告"
+                        ).color(egui::Color32::LIGHT_RED));
+                    }
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                        if ui.button("➕").clicked() {
+                            self.popups.link_config.arguments.push("".to_string());
+                            self.popups.link_config.args_scroll_to_bottom = true;
+                        }
+                    });
+                });
+            });
+
             ui.label(
                 egui::RichText::new("tip: 名称可以使用 / 来创建别名，也可以只输入一个名称。右键命令输入框可以打开路径选择器")
                     .weak()
             );
 
 
-            egui::ComboBox::from_label("选择标签")
+            ui.horizontal(|ui| {
+                egui::ComboBox::from_label("选择标签")
                 .selected_text(if self.popups.link_config.tags.is_empty() {
                     "无标签".to_string()
                 } else {
@@ -163,6 +338,76 @@ impl MyApp {
                     }
                 });
 
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
+                    if ui.button("高级选项 ⚙").clicked() {
+                        debug!("打开高级选项");
+                        self.popups.link_config.show_advanced_config = true;
+                    }
+                });
+            });
+
+
+            egui::Window::new("高级选项")
+            .collapsible(false)
+            .resizable(false)
+            .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
+            .open(&mut self.popups.link_config.show_advanced_config)
+            .max_width(256.)
+            .show(ui.ctx(), |ui| {
+                egui::ScrollArea::vertical()
+                .max_height(256.)
+                .show(ui, |ui| {
+
+
+                #[cfg(target_os = "windows")]
+                {
+                    ui.checkbox(&mut self.popups.link_config.is_admin, {
+                        "以管理员权限运行"
+                    });
+                }
+
+                #[cfg(not(target_os = "windows"))]
+                {
+                    ui.checkbox(&mut self.popups.link_config.is_admin, {
+                        "以超级用户运行"
+                    });
+                }
+
+                if self.popups.link_config.is_admin {
+                    ui.label(egui::RichText::new(
+                        "⚠ 权限的提升可能是危险的，请确保你信任这个程序"
+                    ).color(egui::Color32::LIGHT_RED));
+                }
+
+                ui.separator();
+
+                ui.checkbox(&mut self.popups.link_config.is_new_window, {
+                    "在新的命令行中运行"
+                });
+
+                if !self.popups.link_config.is_new_window {
+                    ui.label(egui::RichText::new(
+                        "⚠ 如果这是个命令行程序，不在新的命令行中运行会导致你无法和它交互。除非你确定这个程序有非命令行用户界面，否则请保持开启"
+                    ).color(egui::Color32::LIGHT_RED));
+                }
+
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    ui.label("配置命令参数");
+                    let arg_button = ui.button(
+                        if self.popups.link_config.arguments.is_empty() {
+                            "没有参数".to_string()
+                        } else {
+                            format!("{} 个参数", self.popups.link_config.arguments.len())
+                        } + " ⚙");
+                    if arg_button.clicked() {
+                        self.popups.link_config.show_args_config = true;
+                    }
+                });
+                
+            })});
+
 
             ui.separator();
             // 保存与取消按钮
@@ -189,7 +434,10 @@ impl MyApp {
                                     self.popups.link_config.name.clone().split("/").map(|s| s.to_string()).collect(),
                                     self.popups.link_config.icon_path.clone().unwrap_or("".to_string()),
                                     self.popups.link_config.run_command.clone(),
-                                    self.popups.link_config.tags.clone().into_iter().collect()
+                                    self.popups.link_config.arguments.clone(),
+                                    self.popups.link_config.tags.clone().into_iter().collect(),
+                                    self.popups.link_config.is_admin,
+                                    self.popups.link_config.is_new_window
                                 )
                             );
                             
@@ -216,7 +464,11 @@ impl MyApp {
                         current_link.name = self.popups.link_config.name.clone().split("/").map(|s| s.to_string()).collect();
                         current_link.icon_path = self.popups.link_config.icon_path.clone().unwrap_or("".to_string());
                         current_link.run_command = self.popups.link_config.run_command.clone();
+                        current_link.arguments = self.popups.link_config.arguments.clone();
                         current_link.tags = self.popups.link_config.tags.clone().into_iter().collect();
+                        current_link.is_admin = self.popups.link_config.is_admin;
+                        current_link.is_new_window = self.popups.link_config.is_new_window;
+
 
                         should_save = true;
                         should_close = true;
@@ -234,9 +486,11 @@ impl MyApp {
 
         if (!show && !should_close && self.popups.called) || should_close {
             // 只有在窗口还是打开状态时才执行清理
-            println!("*你* 关闭了对吧？");
+            debug!("*你* 关闭了对吧？");
             // 用户关闭
             self.popups.called = false;
+            self.popups.link_config.show_args_config = false;
+            self.popups.link_config.show_advanced_config = false;
             
             if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
                 if !should_save {
