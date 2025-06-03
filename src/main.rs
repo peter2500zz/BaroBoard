@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};  // Arc = 原子引用计数(Atomically Reference C
 use egui_winit::winit;
 use rdev::{listen, EventType, Key};
 use std::time::{Duration, Instant};
+#[cfg(target_os = "windows")]
 use trayicon;
 use single_instance::SingleInstance;
 use log::{info, warn, debug, trace};
@@ -62,7 +63,9 @@ fn main() {
     let called_clone = called.clone();
 
     // 是否允许双击呼出
+    #[cfg(target_os = "windows")]
     let all_by_double_alt = Arc::new(Mutex::new(true));
+    #[cfg(target_os = "windows")]
     let all_by_double_alt_clone = all_by_double_alt.clone();
 
     rt.spawn(async move {
@@ -93,6 +96,16 @@ fn main() {
                             }
                             
                             // 如果应该显示，则发送事件
+                            #[cfg(not(target_os = "windows"))]
+                            if should_show {
+                                *called_clone_loop.lock().unwrap() = true;
+                                proxy_clone_loop
+                                    .send_event(event::UserEvent::ShowWindow)
+                                    .unwrap();
+                                // 设置冷却期，限定秒内忽略Alt释放
+                                cooldown_until = Some(Instant::now() + Duration::from_millis(DOUBLE_ALT_COOLDOWN));
+                            }
+                            #[cfg(target_os = "windows")]
                             if should_show && *all_by_double_alt_clone.lock().unwrap() {
                                 *called_clone_loop.lock().unwrap() = true;
                                 proxy_clone_loop
@@ -133,25 +146,27 @@ fn main() {
 
 
     let winit_window_builder = winit::window::WindowAttributes::default()
-        .with_resizable(false)
-        .with_visible(false)
-        .with_inner_size(winit::dpi::LogicalSize {
-            width: WINDOW_SIZE.0,
-            height: WINDOW_SIZE.1,
-        })
-        .with_title("BaroBoard 工具箱") // 参见 https://github.com/emilk/egui/pull/2279
-        .with_window_icon({
-            let rgba = image::load_from_memory(resources::LOGO_ICO).unwrap().to_rgba8();
-            let (width, height) = rgba.dimensions();
-            let rgba_data = rgba.into_raw();
-            Some(winit::window::Icon::from_rgba(rgba_data, width, height).unwrap())
-        })
-        // .with_visible(false)
-        ;
+    .with_resizable(false)
+    .with_visible(false)
+    .with_inner_size(winit::dpi::LogicalSize {
+        width: WINDOW_SIZE.0,
+        height: WINDOW_SIZE.1,
+    })
+    .with_title("BaroBoard 工具箱") // 参见 https://github.com/emilk/egui/pull/2279
+    .with_window_icon({
+        let rgba = image::load_from_memory(resources::LOGO_ICO).unwrap().to_rgba8();
+        let (width, height) = rgba.dimensions();
+        let rgba_data = rgba.into_raw();
+        Some(winit::window::Icon::from_rgba(rgba_data, width, height).unwrap())
+    })
+    // .with_visible(false)
+    ;
 
+    #[cfg(target_os = "windows")]
     let proxy_clone_tray = proxy.clone();
 
     // 创建托盘图标
+    #[cfg(target_os = "windows")]
     let tray_icon = trayicon::TrayIconBuilder::new()
     .sender(move |e: &event::UserEvent| {
         let _ = proxy_clone_tray.send_event(e.clone());
@@ -175,8 +190,10 @@ fn main() {
     // 创建主应用程序
     let proxy_clone_app = proxy.clone();
     let mut app = glow_app::GlowApp::new(
+        #[cfg(target_os = "windows")]
         all_by_double_alt,
         winit_window_builder,
+        #[cfg(target_os = "windows")]
         tray_icon,
         proxy.clone(),
         Box::new(move |egui_ctx| {
