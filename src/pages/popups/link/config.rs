@@ -1,6 +1,7 @@
 use egui;
 use std::collections::HashSet;
 use rfd;
+use std::path::Path;
 use log::debug;
 
 use crate::my_structs::*;
@@ -20,6 +21,7 @@ pub struct LinkConfig {
     pub name: String,
     pub icon_path: Option<String>,
     pub run_command: String,
+    pub working_directory: String,
     pub arguments: Vec<String>,
     pub tags: HashSet<String>,
     pub is_admin: bool,
@@ -39,6 +41,7 @@ impl LinkConfig {
             name: "".to_string(),
             icon_path: None,
             run_command: "".to_string(),
+            working_directory: "".to_string(),
             arguments: Vec::new(),
             tags: HashSet::new(),
             is_admin: false,
@@ -58,6 +61,7 @@ impl LinkConfig {
         self.name = link.name.clone().join("/");
         self.icon_path = Some(link.icon_path.clone());
         self.run_command = link.run_command.clone();
+        self.working_directory = link.working_directory.clone();
         self.arguments = link.arguments.clone();
         self.tags = HashSet::from_iter(link.tags.clone());
         self.is_admin = link.is_admin;
@@ -160,12 +164,12 @@ impl MyApp {
                 ;
             });
 
-
-            egui::Window::new("参数配置")
+            let arguments_config_window = egui::Window::new("参数配置")
             .collapsible(false)
             .resizable(false)
             .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
             .open(&mut self.popups.link_config.show_args_config)
+            .order(egui::Order::Foreground)
             .show(ui.ctx(), |ui| {
                 let mut has_empty_argument = false;
 
@@ -296,6 +300,91 @@ impl MyApp {
                     .weak()
             );
 
+            let advanced_config_window = egui::Window::new("高级选项")
+            .collapsible(false)
+            .resizable(false)
+            .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
+            .open(&mut self.popups.link_config.show_advanced_config)
+            .max_width(256.)
+            .order(egui::Order::Foreground)
+            .show(ui.ctx(), |ui| {
+                egui::ScrollArea::vertical()
+                .max_height(256.)
+                .show(ui, |ui| {
+
+
+                #[cfg(target_os = "windows")]
+                {
+                    ui.checkbox(&mut self.popups.link_config.is_admin, {
+                        "以管理员权限运行"
+                    });
+                }
+
+                #[cfg(not(target_os = "windows"))]
+                {
+                    ui.checkbox(&mut self.popups.link_config.is_admin, {
+                        "以超级用户运行"
+                    });
+                }
+
+                if self.popups.link_config.is_admin {
+                    ui.label(egui::RichText::new(
+                        "⚠ 权限的提升可能是危险的，请确保你信任这个程序"
+                    ).color(egui::Color32::LIGHT_RED));
+                }
+
+                ui.separator();
+
+                ui.checkbox(&mut self.popups.link_config.is_new_window, {
+                    "在新的命令行中运行"
+                });
+
+                if !self.popups.link_config.is_new_window {
+                    ui.label(egui::RichText::new(
+                        "⚠ 如果这是个命令行程序，不在新的命令行中运行会导致你无法和它交互。除非你确定这个程序有非命令行用户界面，否则请保持开启"
+                    ).color(egui::Color32::LIGHT_RED));
+                }
+
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    ui.label("工作目录");
+                    ui.add(egui::TextEdit::singleline(&mut self.popups.link_config.working_directory)
+                    .hint_text(
+                        Path::new(&self.popups.link_config.run_command)
+                        .parent()
+                        .unwrap_or(Path::new("默认为程序所在目录"))
+                        .to_str()
+                        .unwrap_or("默认为程序所在目录")
+                    ));
+                });
+
+                if !Path::new(&self.popups.link_config.working_directory).exists() && !self.popups.link_config.working_directory.is_empty() {
+                    ui.label(egui::RichText::new(
+                        "⚠ 此工作目录无效或者我无法访问它"
+                    ).color(egui::Color32::LIGHT_RED));
+                }
+
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    ui.label("配置命令参数");
+                    let arg_button = ui.button(
+                        if self.popups.link_config.arguments.is_empty() {
+                            "没有参数".to_string()
+                        } else {
+                            format!("{} 个参数", self.popups.link_config.arguments.len())
+                        } + " ⚙");
+                    if arg_button.clicked() {
+                        self.popups.link_config.show_args_config = true;
+                        if let Some(window) = arguments_config_window {
+                            window.response.request_focus();
+                        }
+                    }
+                });
+                
+            })});
+
 
             ui.horizontal(|ui| {
                 egui::ComboBox::from_label("选择标签")
@@ -342,72 +431,12 @@ impl MyApp {
                     if ui.button("高级选项 ⚙").clicked() {
                         debug!("打开高级选项");
                         self.popups.link_config.show_advanced_config = true;
+                        if let Some(window) = advanced_config_window {
+                            window.response.request_focus();
+                        }
                     }
                 });
             });
-
-
-            egui::Window::new("高级选项")
-            .collapsible(false)
-            .resizable(false)
-            .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
-            .open(&mut self.popups.link_config.show_advanced_config)
-            .max_width(256.)
-            .show(ui.ctx(), |ui| {
-                egui::ScrollArea::vertical()
-                .max_height(256.)
-                .show(ui, |ui| {
-
-
-                #[cfg(target_os = "windows")]
-                {
-                    ui.checkbox(&mut self.popups.link_config.is_admin, {
-                        "以管理员权限运行"
-                    });
-                }
-
-                #[cfg(not(target_os = "windows"))]
-                {
-                    ui.checkbox(&mut self.popups.link_config.is_admin, {
-                        "以超级用户运行"
-                    });
-                }
-
-                if self.popups.link_config.is_admin {
-                    ui.label(egui::RichText::new(
-                        "⚠ 权限的提升可能是危险的，请确保你信任这个程序"
-                    ).color(egui::Color32::LIGHT_RED));
-                }
-
-                ui.separator();
-
-                ui.checkbox(&mut self.popups.link_config.is_new_window, {
-                    "在新的命令行中运行"
-                });
-
-                if !self.popups.link_config.is_new_window {
-                    ui.label(egui::RichText::new(
-                        "⚠ 如果这是个命令行程序，不在新的命令行中运行会导致你无法和它交互。除非你确定这个程序有非命令行用户界面，否则请保持开启"
-                    ).color(egui::Color32::LIGHT_RED));
-                }
-
-                ui.separator();
-
-                ui.horizontal(|ui| {
-                    ui.label("配置命令参数");
-                    let arg_button = ui.button(
-                        if self.popups.link_config.arguments.is_empty() {
-                            "没有参数".to_string()
-                        } else {
-                            format!("{} 个参数", self.popups.link_config.arguments.len())
-                        } + " ⚙");
-                    if arg_button.clicked() {
-                        self.popups.link_config.show_args_config = true;
-                    }
-                });
-                
-            })});
-
 
             ui.separator();
             // 保存与取消按钮
@@ -464,6 +493,7 @@ impl MyApp {
                         current_link.name = self.popups.link_config.name.clone().split("/").map(|s| s.to_string()).collect();
                         current_link.icon_path = self.popups.link_config.icon_path.clone().unwrap_or("".to_string());
                         current_link.run_command = self.popups.link_config.run_command.clone();
+                        current_link.working_directory = self.popups.link_config.working_directory.clone();
                         current_link.arguments = self.popups.link_config.arguments.clone();
                         current_link.tags = self.popups.link_config.tags.clone().into_iter().collect();
                         current_link.is_admin = self.popups.link_config.is_admin;

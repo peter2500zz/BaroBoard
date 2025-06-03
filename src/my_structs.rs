@@ -5,6 +5,7 @@ use uuid::Uuid;
 use std::sync::{Arc, Mutex};
 use std::process::Command;
 use log::{debug, error, info, warn};
+use std::path::Path;
 
 use crate::pages::popups::Popups;
 use crate::window::{self, event::UserEvent};
@@ -15,6 +16,7 @@ pub struct ProgramLink {
     pub name: Vec<String>,
     pub icon_path: String,
     pub run_command: String,
+    pub working_directory: String,
     pub arguments: Vec<String>,
     pub tags: HashSet<String>,
 
@@ -32,6 +34,7 @@ impl Default for ProgramLink {
             name: Vec::new(),
             icon_path: "".to_string(),
             run_command: "".to_string(),
+            working_directory: "".to_string(),
             arguments: Vec::new(),
             tags: HashSet::new(),
 
@@ -216,6 +219,7 @@ impl MyApp {
     pub fn run_program(&self, program_link: ProgramLink) {
         // 解析命令字符串，分离程序名和参数
         let command = program_link.run_command;
+        let working_directory = if program_link.working_directory.is_empty() { Path::new(&command).parent().unwrap_or(Path::new(".")) } else { Path::new(&program_link.working_directory) };
         let args = program_link.arguments;
         let is_admin = program_link.is_admin;
         let is_new_window = program_link.is_new_window;
@@ -244,6 +248,7 @@ impl MyApp {
                     
                     Command::new("powershell")
                         .args(["-Command", &ps_command])
+                        .current_dir(working_directory)
                         .spawn()
                 },
                 // 仅管理员权限
@@ -259,6 +264,7 @@ impl MyApp {
                     
                     Command::new("powershell")
                         .args(["-Command", &ps_command])
+                        .current_dir(working_directory)
                         .spawn()
                 },
                 // 仅新窗口
@@ -269,12 +275,14 @@ impl MyApp {
                     
                     Command::new("cmd")
                         .args(cmd_args)
+                        .current_dir(working_directory)
                         .spawn()
                 },
                 // 普通运行
                 (false, false) => {
-                    Command::new(command)
+                    Command::new(&command)
                         .args(args)
+                        .current_dir(working_directory)
                         .spawn()
                 }
             };

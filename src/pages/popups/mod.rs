@@ -509,7 +509,9 @@ impl MyApp {
 
 impl MyApp {
     fn config_auto_fix(&mut self) {
-        let config_file = crate::pages::popups::link::save::load_conf(crate::CONFIG_FILE_NAME);
+        let config_file = crate::pages::popups::link::save::load_conf(
+            &format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME)
+        );
 
         match config_file {
             Ok(links_config) => {
@@ -566,6 +568,13 @@ impl MyApp {
                             if let Some(run_command) = program_link.get("run_command") {
                                 if let Some(run_command_str) = run_command.as_str() {
                                     new_program_link.run_command = run_command_str.to_string();
+                                }
+                            }
+
+                            // 尝试获取working_directory
+                            if let Some(working_directory) = program_link.get("working_directory") {
+                                if let Some(working_directory_str) = working_directory.as_str() {
+                                    new_program_link.working_directory = working_directory_str.to_string();
                                 }
                             }
 
@@ -633,7 +642,9 @@ impl MyApp {
     }
 
     fn force_read_config(&mut self) {
-        let (program_links, tags) = match serde_json::from_value::<crate::pages::popups::link::save::LinkConfigSchema>(crate::pages::popups::link::save::load_conf(crate::CONFIG_FILE_NAME).unwrap()) {
+        let (program_links, tags) = match serde_json::from_value::<crate::pages::popups::link::save::LinkConfigSchema>(
+            crate::pages::popups::link::save::load_conf(&format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME)).unwrap()
+        ) {
             Ok(links_config) => (links_config.program_links, links_config.tags),
             Err(e) => {
                 debug!("读取配置文件失败: {}", e);

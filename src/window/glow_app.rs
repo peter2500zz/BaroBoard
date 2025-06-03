@@ -1,7 +1,7 @@
 use crate::{event::UserEvent, window::GlutinWindowContext};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use log::debug;
+use log::{debug, info};
 
 use crate::window;
 
@@ -269,6 +269,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
             }
             UserEvent::Exit => {
+                info!("程序退出");
                 std::process::exit(0);
             }
 
