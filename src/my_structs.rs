@@ -247,9 +247,9 @@ impl MyApp {
                     }
                     
                     Command::new("powershell")
-                        .args(["-Command", &ps_command])
-                        .current_dir(working_directory)
-                        .spawn()
+                    .args(["-Command", &ps_command])
+                    .current_dir(working_directory)
+                    .spawn()
                 },
                 // 仅管理员权限
                 (true, false) => {
@@ -263,9 +263,9 @@ impl MyApp {
                     }
                     
                     Command::new("powershell")
-                        .args(["-Command", &ps_command])
-                        .current_dir(working_directory)
-                        .spawn()
+                    .args(["-Command", &ps_command])
+                    .current_dir(working_directory)
+                    .spawn()
                 },
                 // 仅新窗口
                 (false, true) => {
@@ -274,18 +274,33 @@ impl MyApp {
                     cmd_args.extend(args.iter().map(|s| s.as_str()));
                     
                     Command::new("cmd")
-                        .args(cmd_args)
-                        .current_dir(working_directory)
-                        .spawn()
+                    .args(cmd_args)
+                    .current_dir(working_directory)
+                    .spawn()
                 },
                 // 普通运行
                 (false, false) => {
                     Command::new(&command)
-                        .args(args)
-                        .current_dir(working_directory)
-                        .spawn()
+                    .args(args)
+                    .current_dir(working_directory)
+                    .spawn()
                 }
             };
+
+            match result {
+                Ok(_) => debug!("{} 运行成功", program_name.unwrap_or(&"".to_string())),
+                Err(e) => {
+                    debug!("{} 运行失败: {}", program_name.unwrap_or(&"".to_string()), e);
+                },
+            }
+        }
+    
+        #[cfg(not(target_os = "windows"))]
+        {
+            let result = Command::new(&command)
+            .args(args)
+            .current_dir(working_directory)
+            .spawn();
 
             match result {
                 Ok(_) => debug!("{} 运行成功", program_name.unwrap_or(&"".to_string())),

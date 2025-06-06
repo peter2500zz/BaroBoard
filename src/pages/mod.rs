@@ -43,6 +43,7 @@ impl MyApp {
                                     self.hide_window();
                                 }
 
+                                #[cfg(target_os = "windows")]
                                 if ui.button("获取图标").clicked() {
                                     crate::utils::windows_utils::get_icon_from_exe("C:\\Windows\\System32\\notepad.exe").unwrap();
                                 }
