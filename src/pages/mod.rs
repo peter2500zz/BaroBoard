@@ -314,6 +314,10 @@ impl MyApp {
                             } else {
                                 if response.clicked() {
                                     self.run_program(program.clone());
+                                    
+                                    if !self.search_text.is_empty() {
+                                        self.hide_window();
+                                    }
                                 }
                                 
                                 // 右键点击图标，显示上下文菜单
