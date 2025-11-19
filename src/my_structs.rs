@@ -8,6 +8,7 @@ use log::{debug, error, info, warn};
 use std::path::Path;
 
 use crate::pages::popups::Popups;
+use crate::texture_mgr::{save_icon, save_invalid_icon};
 use crate::window::{self, event::UserEvent};
 
 
@@ -132,7 +133,7 @@ impl MyApp {
 
         let links_config = crate::pages::popups::link::save::load_conf(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str());
 
-        let (program_links, tags) =  match links_config {
+        let (mut program_links, tags) =  match links_config {
             Ok(links_config) => {
                 let version = links_config.get("version")
                     .and_then(|v| v.as_u64())
@@ -166,6 +167,12 @@ impl MyApp {
                 (Vec::new(), HashSet::new())
             },
         };
+
+        for program_link in &mut program_links {
+            if !Path::new(&program_link.icon_path).exists() {
+                program_link.icon_path = save_invalid_icon().unwrap_or_default();
+            }
+        }
 
         Self {  
             hwnd: None,
@@ -277,7 +284,7 @@ impl MyApp {
             return;
         }
 
-        let icon_path = match self.save_icon(path.clone()) {
+        let icon_path = match save_icon(&path) {
             Ok(icon_path) => icon_path,
             Err(e) => {
                 debug!("保存图标失败: {}", e);
@@ -305,7 +312,7 @@ impl window::App for MyApp {
         self.hwnd = hwnd;
         for program_link in self.program_links.iter() {
             if program_link.icon_path.ends_with(".exe") {
-                match self.save_icon(program_link.icon_path.clone()) {
+                match save_icon(&program_link.icon_path) {
                     Ok(_) => debug!("保存图标成功"),
                     Err(e) => debug!("保存图标失败: {}", e),
                 }

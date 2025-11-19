@@ -84,6 +84,14 @@ pub fn get_icon_from_exe(path: &str) -> Result<Vec<u8>, Box<dyn std::error::Erro
     }
 }
 
+pub fn get_invalid_icon() -> Vec<u8> {
+    let mut buf = Cursor::new(Vec::new());
+    invalid_icon().write_to(&mut buf, ImageFormat::Png).unwrap();
+
+    buf.into_inner()
+}
+
+
 fn invalid_icon() -> RgbaImage {
     let width = 256u32;
     let height = 256u32;

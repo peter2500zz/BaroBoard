@@ -4,7 +4,7 @@ use rfd;
 use std::path::Path;
 use log::debug;
 
-use crate::my_structs::*;
+use crate::{my_structs::*, texture_mgr::save_icon};
 
 /// 表示参数在列表中的索引位置
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -113,7 +113,7 @@ impl MyApp {
                     let mut icon_path = path.display().to_string();
 
                     if !can_display.contains(&path.extension().unwrap().to_string_lossy().as_str()) {
-                        icon_path = match self.save_icon(icon_path.clone()) {
+                        icon_path = match save_icon(&icon_path) {
                             Ok(icon_path) => icon_path,
                             Err(e) => {
                                 debug!("保存图标失败: {}", e);
