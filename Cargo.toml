@@ -34,7 +34,7 @@ chrono = { version = "0.4.41", features = ["serde"] }
 [target.'cfg(windows)'.dependencies]
 systemicons = "0.9.13"
 trayicon = "0.2.0"
-windows = { version = "0.62.2", features = ["Win32_System_Registry", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+windows = { version = "0.62.2", features = ["Win32_System_Registry", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
 widestring = "1.2.1"
 
 [build-dependencies]
