@@ -115,6 +115,7 @@ impl MyApp {
         proxy: winit::event_loop::EventLoopProxy<UserEvent>
     ) -> Self {
         let mut wont_save = false;
+        let mut popup = Popups::new();
 
         // 创建.baro文件夹
         if !std::path::Path::new(crate::CONFIG_SAVE_PATH).exists() {
@@ -126,9 +127,8 @@ impl MyApp {
                     wont_save = true;
                 },
             }
+            popup.new_here();
         }
-
-        let mut popup = Popups::new();
 
         let links_config = crate::pages::popups::link::save::load_conf(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str());
 
@@ -160,6 +160,8 @@ impl MyApp {
                 if std::path::Path::new(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str()).exists() {
                     proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
                     popup.config_file_format_error();
+                } else {
+                    proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
                 }
                 (Vec::new(), HashSet::new())
             },
@@ -275,29 +277,24 @@ impl MyApp {
             return;
         }
 
-        // 如果是个exe文件
-        if path.ends_with(".exe") {
-            let icon_path = match self.save_icon(path.clone()) {
-                Ok(icon_path) => icon_path,
-                Err(e) => {
-                    debug!("保存图标失败: {}", e);
-                    "读取exe图标失败".to_string()
-                }
-            };
+        let icon_path = match self.save_icon(path.clone()) {
+            Ok(icon_path) => icon_path,
+            Err(e) => {
+                debug!("保存图标失败: {}", e);
+                "读取exe图标失败".to_string()
+            }
+        };
 
-            let name = std::path::Path::new(&path).file_name().unwrap().to_str().unwrap().to_string();
-            // 去掉.exe
-            let name = name.strip_suffix(".exe").unwrap_or(&name).to_string();
+        let name = std::path::Path::new(&path).file_name().unwrap().to_str().unwrap().to_string();
 
-            self.program_links.push(ProgramLink::new(
-                vec![name],
-                icon_path,
-                path.clone(),
-                Vec::new(),
-                HashSet::new(),
-                false,
-            ));
-        }
+        self.program_links.push(ProgramLink::new(
+            vec![name],
+            icon_path,
+            path.clone(),
+            Vec::new(),
+            HashSet::new(),
+            false,
+        ));
 
         self.save_conf();
     }

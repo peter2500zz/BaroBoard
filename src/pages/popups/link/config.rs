@@ -1,4 +1,4 @@
-use egui;
+use egui::{self, TextBuffer};
 use std::collections::HashSet;
 use rfd;
 use std::path::Path;
@@ -20,7 +20,7 @@ pub struct LinkConfig {
     // 临时变量们
     pub name: String,
     pub icon_path: Option<String>,
-    pub run_command: String,
+    pub file_path: String,
     pub working_directory: String,
     pub arguments: Vec<String>,
     pub tags: HashSet<String>,
@@ -39,7 +39,7 @@ impl LinkConfig {
             index_of_the_link: 0,
             name: "".to_string(),
             icon_path: None,
-            run_command: "".to_string(),
+            file_path: "".to_string(),
             working_directory: "".to_string(),
             arguments: Vec::new(),
             tags: HashSet::new(),
@@ -58,7 +58,7 @@ impl LinkConfig {
 
         self.name = link.name.clone().join("/");
         self.icon_path = Some(link.icon_path.clone());
-        self.run_command = link.run_command.clone();
+        self.file_path = link.run_command.clone();
         self.working_directory = link.working_directory.clone();
         self.arguments = link.arguments.clone();
         self.tags = HashSet::from_iter(link.tags.clone());
@@ -101,12 +101,9 @@ impl MyApp {
                 egui::vec2(96.0, 96.0),
                 egui::ImageButton::new(format!("file://{}", &self.popups.link_config.icon_path.clone().unwrap_or("你还没有添加任何图片！".to_string())))
             ).clicked() {
-                
-                let mut valid_extension = vec!["png", "svg"];
-                valid_extension.push("exe");
+                let can_display = vec!["png", "svg"];
 
                 if let Some(path) = rfd::FileDialog::new()
-                .add_filter("图片", &valid_extension)  //, "gif"])
                 .pick_file() {
                     // 如果之前设置页面有图片，则尝试删除缓存
                     if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
@@ -115,7 +112,7 @@ impl MyApp {
 
                     let mut icon_path = path.display().to_string();
 
-                    if icon_path.ends_with(".exe") {
+                    if !can_display.contains(&path.extension().unwrap().to_string_lossy().as_str()) {
                         icon_path = match self.save_icon(icon_path.clone()) {
                             Ok(icon_path) => icon_path,
                             Err(e) => {
@@ -138,16 +135,16 @@ impl MyApp {
             });
 
             ui.horizontal(|ui| {
-                ui.label("命令");
+                ui.label("路径");
                 ui.add(
-                    egui::TextEdit::singleline(&mut self.popups.link_config.run_command).hint_text("e.g. C:\\Windows\\System32\\notepad.exe")
+                    egui::TextEdit::singleline(&mut self.popups.link_config.file_path).hint_text("e.g. C:\\Windows\\System32\\notepad.exe")
                 )
                 .context_menu(|ui| {
                     if ui.button("选择一个程序").clicked() {
                         if let Some(path) = rfd::FileDialog::new()
                             .add_filter("任意文件", &["*"])
                             .pick_file() {
-                                self.popups.link_config.run_command = path.display().to_string();
+                                self.popups.link_config.file_path = path.display().to_string();
                             }
                         ui.close_menu();
                     }
@@ -320,7 +317,7 @@ impl MyApp {
                     ui.label("工作目录");
                     ui.add(egui::TextEdit::singleline(&mut self.popups.link_config.working_directory)
                     .hint_text(
-                        Path::new(&self.popups.link_config.run_command)
+                        Path::new(&self.popups.link_config.file_path)
                         .parent()
                         .unwrap_or(Path::new("默认为程序所在目录"))
                         .to_str()
@@ -431,7 +428,7 @@ impl MyApp {
                                 ProgramLink::new(
                                     self.popups.link_config.name.clone().split("/").map(|s| s.to_string()).collect(),
                                     self.popups.link_config.icon_path.clone().unwrap_or("".to_string()),
-                                    self.popups.link_config.run_command.clone(),
+                                    self.popups.link_config.file_path.clone(),
                                     self.popups.link_config.arguments.clone(),
                                     self.popups.link_config.tags.clone().into_iter().collect(),
                                     self.popups.link_config.is_admin,
@@ -460,7 +457,7 @@ impl MyApp {
 
                         current_link.name = self.popups.link_config.name.clone().split("/").map(|s| s.to_string()).collect();
                         current_link.icon_path = self.popups.link_config.icon_path.clone().unwrap_or("".to_string());
-                        current_link.run_command = self.popups.link_config.run_command.clone();
+                        current_link.run_command = self.popups.link_config.file_path.clone();
                         current_link.working_directory = self.popups.link_config.working_directory.clone();
                         current_link.arguments = self.popups.link_config.arguments.clone();
                         current_link.tags = self.popups.link_config.tags.clone().into_iter().collect();
