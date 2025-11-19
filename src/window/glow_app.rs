@@ -1,10 +1,8 @@
 use crate::{event::UserEvent, window::GlutinWindowContext};
 use std::sync::Arc;
-#[cfg(target_os = "windows")]
 use std::sync::Mutex;
 use std::time::Duration;
 use log::debug;
-#[cfg(target_os = "windows")]
 use log::info;
 use windows::Win32::Foundation::HWND;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -13,9 +11,7 @@ use crate::window;
 
 
 pub struct GlowApp {
-    #[cfg(target_os = "windows")]
     call_by_double_alt: Arc<Mutex<bool>>,
-    #[cfg(target_os = "windows")]
     tray_icon: trayicon::TrayIcon<UserEvent>,
     proxy: winit::event_loop::EventLoopProxy<UserEvent>,
     gl_window: Option<GlutinWindowContext>,
@@ -32,18 +28,14 @@ pub struct GlowApp {
 
 impl GlowApp {
     pub fn new(
-        #[cfg(target_os = "windows")]
         call_by_double_alt: Arc<Mutex<bool>>,
         winit_window_builder: winit::window::WindowAttributes,
-        #[cfg(target_os = "windows")]
         tray_icon: trayicon::TrayIcon<UserEvent>,
         proxy: winit::event_loop::EventLoopProxy<UserEvent>,
         set_up: Box<dyn Fn(&egui::Context) -> Box<dyn window::App> + Send + Sync + 'static>,
     ) -> Self {
         Self {
-            #[cfg(target_os = "windows")]
             call_by_double_alt,
-            #[cfg(target_os = "windows")]
             tray_icon,
             proxy,
             gl_window: None,
@@ -297,22 +289,19 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 // 窗口隐藏时，设置为等待模式，避免频繁唤醒
                 event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
             }
-            #[cfg(target_os = "windows")]
+
             UserEvent::Exit => {
                 info!("程序退出");
                 std::process::exit(0);
             }
 
             // 托盘相关
-            #[cfg(target_os = "windows")]
             UserEvent::LeftClickTrayIcon => {
                 self.proxy.send_event(UserEvent::ShowWindow).unwrap();
             }
-            #[cfg(target_os = "windows")]
             UserEvent::RightClickTrayIcon => {
                 self.tray_icon.show_menu().unwrap();
             }
-            #[cfg(target_os = "windows")]
             UserEvent::ChangeDoubleAlt => {
                 // self.is_checked = is_checked;
                 let mut call_by_double_alt = self.call_by_double_alt.lock().unwrap();

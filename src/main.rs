@@ -13,7 +13,6 @@ use egui_winit::winit;
 use rdev::{listen, EventType, Key};
 use winit::event_loop::EventLoopProxy;
 use std::time::{Duration, Instant};
-#[cfg(target_os = "windows")]
 use trayicon;
 use single_instance::SingleInstance;
 use log::{info, warn, debug, trace};
@@ -63,7 +62,6 @@ fn main() {
     let called = Arc::new(Mutex::new(true));
 
     // 是否允许双击呼出
-    #[cfg(target_os = "windows")]
     let all_by_double_alt = Arc::new(Mutex::new(true));
 
     rt.spawn(double_tap_call(proxy.clone(), Arc::clone(&called), Arc::clone(&all_by_double_alt)));
@@ -86,11 +84,9 @@ fn main() {
     // .with_visible(false)
     ;
 
-    #[cfg(target_os = "windows")]
     let proxy_clone_tray = proxy.clone();
 
     // 创建托盘图标
-    #[cfg(target_os = "windows")]
     let tray_icon = trayicon::TrayIconBuilder::new()
     .sender(move |e: &event::UserEvent| {
         let _ = proxy_clone_tray.send_event(e.clone());
@@ -114,10 +110,8 @@ fn main() {
     // 创建主应用程序
     let proxy_clone_app = proxy.clone();
     let mut app = glow_app::GlowApp::new(
-        #[cfg(target_os = "windows")]
         all_by_double_alt,
         winit_window_builder,
-        #[cfg(target_os = "windows")]
         tray_icon,
         proxy.clone(),
         Box::new(move |egui_ctx| {

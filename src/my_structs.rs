@@ -193,12 +193,10 @@ impl MyApp {
                 // ctx.forget_all_images();
                 self.cached_icon.remove(icon_path);
 
-                #[cfg(target_os = "windows")]
-                {
-                    match std::fs::remove_file(icon_path.clone()) {
-                        Ok(_) => debug!("删除缓存图片资源 {} 成功", icon_path),
-                        Err(e) => debug!("删除缓存图片资源 {} 失败: {}", icon_path, e),
-                    }
+
+                match std::fs::remove_file(icon_path.clone()) {
+                    Ok(_) => debug!("删除缓存图片资源 {} 成功", icon_path),
+                    Err(e) => debug!("删除缓存图片资源 {} 失败: {}", icon_path, e),
                 }
             } else {
                 debug!("图片仍在被使用，将不会释放 {}", icon_path);
@@ -221,39 +219,21 @@ impl MyApp {
             return;
         }
 
-        #[cfg(target_os = "windows")]
-        {
-            use crate::utils::windows_utils::create_process;
-            // 根据不同的运行模式选择不同的执行方式
-            let result = create_process(
-                self.hwnd.unwrap(),
-                &command, 
-                &working_directory.to_string_lossy().to_string(),
-                &args.join(" "),
-                is_admin
-            );
+        use crate::utils::create_process;
+        // 根据不同的运行模式选择不同的执行方式
+        let result = create_process(
+            self.hwnd.unwrap(),
+            &command, 
+            &working_directory.to_string_lossy().to_string(),
+            &args.join(" "),
+            is_admin
+        );
 
-            match result {
-                Ok(_) => debug!("{} 运行成功", program_name.unwrap_or(&"".to_string())),
-                Err(e) => {
-                    debug!("{} 运行失败: {}", program_name.unwrap_or(&"".to_string()), e);
-                },
-            }
-        }
-    
-        #[cfg(not(target_os = "windows"))]
-        {
-            let result = Command::new(&command)
-            .args(args)
-            .current_dir(working_directory)
-            .spawn();
-
-            match result {
-                Ok(_) => debug!("{} 运行成功", program_name.unwrap_or(&"".to_string())),
-                Err(e) => {
-                    debug!("{} 运行失败: {}", program_name.unwrap_or(&"".to_string()), e);
-                },
-            }
+        match result {
+            Ok(_) => debug!("{} 运行成功", program_name.unwrap_or(&"".to_string())),
+            Err(e) => {
+                debug!("{} 运行失败: {}", program_name.unwrap_or(&"".to_string()), e);
+            },
         }
     }
 
@@ -295,8 +275,7 @@ impl MyApp {
             return;
         }
 
-        // 如果是个exe文件（仅限windows）
-        #[cfg(target_os = "windows")]
+        // 如果是个exe文件
         if path.ends_with(".exe") {
             let icon_path = match self.save_exe_icon(path.clone()) {
                 Ok(icon_path) => icon_path,
@@ -327,14 +306,11 @@ impl MyApp {
 impl window::App for MyApp {
     fn init(&mut self, hwnd: Option<HWND>) {
         self.hwnd = hwnd;
-        #[cfg(target_os = "windows")]
-        {
-            for program_link in self.program_links.iter() {
-                if program_link.icon_path.ends_with(".exe") {
-                    match self.save_exe_icon(program_link.icon_path.clone()) {
-                        Ok(_) => debug!("保存图标成功"),
-                        Err(e) => debug!("保存图标失败: {}", e),
-                    }
+        for program_link in self.program_links.iter() {
+            if program_link.icon_path.ends_with(".exe") {
+                match self.save_exe_icon(program_link.icon_path.clone()) {
+                    Ok(_) => debug!("保存图标成功"),
+                    Err(e) => debug!("保存图标失败: {}", e),
                 }
             }
         }

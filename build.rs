@@ -2,7 +2,7 @@
 
 fn main() {
     // 只在Windows平台上编译资源
-    if cfg!(all(target_os = "windows", not(debug_assertions))) {
+    if cfg!(not(debug_assertions)) {
         let mut res = winres::WindowsResource::new();
         
         // 设置图标

@@ -3,9 +3,8 @@ use crate::my_structs;
 
 
 impl my_structs::MyApp {
-    #[cfg(target_os = "windows")]
     pub fn save_exe_icon(&self, path: String) -> Result<String, Box<dyn std::error::Error>> {
-        use crate::utils::windows_utils::get_icon_from_exe;
+        use crate::utils::get_icon_from_exe;
         
         let icon = get_icon_from_exe(&path)?;
         

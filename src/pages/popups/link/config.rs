@@ -103,10 +103,7 @@ impl MyApp {
             ).clicked() {
                 
                 let mut valid_extension = vec!["png", "svg"];
-                #[cfg(target_os = "windows")]
-                {
-                    valid_extension.push("exe");
-                }
+                valid_extension.push("exe");
 
                 if let Some(path) = rfd::FileDialog::new()
                 .add_filter("图片", &valid_extension)  //, "gif"])
@@ -118,17 +115,14 @@ impl MyApp {
 
                     let mut icon_path = path.display().to_string();
 
-                    #[cfg(target_os = "windows")]
-                    {
-                        if icon_path.ends_with(".exe") {
-                            icon_path = match self.save_exe_icon(icon_path.clone()) {
-                                Ok(icon_path) => icon_path,
-                                Err(e) => {
-                                    debug!("保存图标失败: {}", e);
-                                    "读取exe图标失败".to_string()
-                                }
-                            };
-                        }
+                    if icon_path.ends_with(".exe") {
+                        icon_path = match self.save_exe_icon(icon_path.clone()) {
+                            Ok(icon_path) => icon_path,
+                            Err(e) => {
+                                debug!("保存图标失败: {}", e);
+                                "读取exe图标失败".to_string()
+                            }
+                        };
                     }
 
                     self.popups.link_config.icon_path = Some(icon_path);
@@ -310,19 +304,9 @@ impl MyApp {
                 .show(ui, |ui| {
 
 
-                #[cfg(target_os = "windows")]
-                {
-                    ui.checkbox(&mut self.popups.link_config.is_admin, {
-                        "以管理员权限运行"
-                    });
-                }
-
-                #[cfg(not(target_os = "windows"))]
-                {
-                    ui.checkbox(&mut self.popups.link_config.is_admin, {
-                        "以超级用户运行"
-                    });
-                }
+                ui.checkbox(&mut self.popups.link_config.is_admin, {
+                    "以管理员权限运行"
+                });
 
                 if self.popups.link_config.is_admin {
                     ui.label(egui::RichText::new(
