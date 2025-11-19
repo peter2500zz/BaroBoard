@@ -232,7 +232,7 @@ impl MyApp {
                             .entry(program.icon_path.clone())
                             .or_insert_with(HashSet::new)
                             .insert(program.uuid.clone());
-                        
+
                         let btn = Box::new(|ui: &mut egui::Ui| {
                             if !self.edit_mode {
                                 ui.style_mut().visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;

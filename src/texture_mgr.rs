@@ -1,11 +1,11 @@
 use md5;
+
 use crate::my_structs;
+use crate::utils::get_icon_from_exe;
 
 
 impl my_structs::MyApp {
-    pub fn save_exe_icon(&self, path: String) -> Result<String, Box<dyn std::error::Error>> {
-        use crate::utils::get_icon_from_exe;
-        
+    pub fn save_icon(&self, path: String) -> Result<String, Box<dyn std::error::Error>> {
         let icon = get_icon_from_exe(&path)?;
         
         std::fs::create_dir_all(format!("{}/cache/exe_icon", crate::CONFIG_SAVE_PATH))?;

@@ -30,11 +30,8 @@ md5 = "0.7.0"
 env_logger = "0.11.8"
 log = "0.4.27"
 chrono = { version = "0.4.41", features = ["serde"] }
-
-[target.'cfg(windows)'.dependencies]
-systemicons = "0.9.13"
 trayicon = "0.2.0"
-windows = { version = "0.62.2", features = ["Win32_System_Registry", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
+windows = { version = "0.62.2", features = ["Win32_System_Registry", "Win32_UI_Shell", "Win32_UI_Controls", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_Storage_FileSystem"] }
 widestring = "1.2.1"
 
 [build-dependencies]

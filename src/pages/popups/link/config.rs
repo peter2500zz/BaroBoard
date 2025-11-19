@@ -116,7 +116,7 @@ impl MyApp {
                     let mut icon_path = path.display().to_string();
 
                     if icon_path.ends_with(".exe") {
-                        icon_path = match self.save_exe_icon(icon_path.clone()) {
+                        icon_path = match self.save_icon(icon_path.clone()) {
                             Ok(icon_path) => icon_path,
                             Err(e) => {
                                 debug!("保存图标失败: {}", e);

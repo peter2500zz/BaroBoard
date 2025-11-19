@@ -277,7 +277,7 @@ impl MyApp {
 
         // 如果是个exe文件
         if path.ends_with(".exe") {
-            let icon_path = match self.save_exe_icon(path.clone()) {
+            let icon_path = match self.save_icon(path.clone()) {
                 Ok(icon_path) => icon_path,
                 Err(e) => {
                     debug!("保存图标失败: {}", e);
@@ -308,7 +308,7 @@ impl window::App for MyApp {
         self.hwnd = hwnd;
         for program_link in self.program_links.iter() {
             if program_link.icon_path.ends_with(".exe") {
-                match self.save_exe_icon(program_link.icon_path.clone()) {
+                match self.save_icon(program_link.icon_path.clone()) {
                     Ok(_) => debug!("保存图标成功"),
                     Err(e) => debug!("保存图标失败: {}", e),
                 }
