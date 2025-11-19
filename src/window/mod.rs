@@ -2,12 +2,13 @@ pub mod event;
 pub mod glow_app;
 
 use std::num::NonZeroU32;
+use windows::Win32::Foundation::HWND;
 use winit::raw_window_handle::HasWindowHandle;
 use log::debug;
 
 pub trait App {
     // 初始化
-    fn init(&mut self);
+    fn init(&mut self, hwnd: Option<HWND>);
 
     // 更新
     fn update(&mut self, ctx: &egui::Context);

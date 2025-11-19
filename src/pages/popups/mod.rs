@@ -611,13 +611,6 @@ impl MyApp {
                                 }
                             }
 
-                            // 尝试获取is_new_window
-                            if let Some(is_new_window) = program_link.get("is_new_window") {
-                                if let Some(is_new_window_bool) = is_new_window.as_bool() {
-                                    new_program_link.is_new_window = is_new_window_bool;
-                                }
-                            }
-
                             // 尝试获取uuid
                             if let Some(uuid) = program_link.get("uuid") {
                                 if let Some(uuid_str) = uuid.as_str() {

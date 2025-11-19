@@ -1,9 +1,9 @@
 use egui;
 use serde::{Serialize, Deserialize};
+use windows::Win32::Foundation::HWND;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use std::sync::{Arc, Mutex};
-use std::process::Command;
 use log::{debug, error, info, warn};
 use std::path::Path;
 
@@ -22,7 +22,6 @@ pub struct ProgramLink {
 
     // 高级内容
     pub is_admin: bool,
-    pub is_new_window: bool,
 
      // 自动生成
     pub uuid: String,
@@ -39,7 +38,6 @@ impl Default for ProgramLink {
             tags: HashSet::new(),
 
             is_admin: false,
-            is_new_window: true,
 
             uuid: Uuid::new_v4().to_string(),
         }
@@ -47,7 +45,7 @@ impl Default for ProgramLink {
 }
 
 impl ProgramLink {
-    pub fn new(name: Vec<String>, icon_path: String, run_command: String, argument: Vec<String>, tags: HashSet<String>, is_admin: bool, is_new_window: bool) -> Self {
+    pub fn new(name: Vec<String>, icon_path: String, run_command: String, argument: Vec<String>, tags: HashSet<String>, is_admin: bool) -> Self {
         Self {
             name: name,
             icon_path: icon_path,
@@ -55,19 +53,10 @@ impl ProgramLink {
             arguments: argument,
             tags: tags,
             is_admin: is_admin,
-            is_new_window: is_new_window,
             ..Default::default()
         }
     }
 }
-
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Page {
-    pub program_links: Vec<ProgramLink>,
-    pub title: String,
-}
-
 
 #[derive(Debug)]
 pub struct LinkPosition {
@@ -84,6 +73,7 @@ impl LinkPosition {
 
 #[derive(Debug)]
 pub struct MyApp {
+    hwnd: Option<HWND>,
     // 与窗口通信的代理
     pub proxy: winit::event_loop::EventLoopProxy<UserEvent>,
 
@@ -176,6 +166,7 @@ impl MyApp {
         };
 
         Self {  
+            hwnd: None,
             proxy: proxy,
 
             program_links: program_links,
@@ -222,7 +213,6 @@ impl MyApp {
         let working_directory = if program_link.working_directory.is_empty() { Path::new(&command).parent().unwrap_or(Path::new(".")) } else { Path::new(&program_link.working_directory) };
         let args = program_link.arguments;
         let is_admin = program_link.is_admin;
-        let is_new_window = program_link.is_new_window;
 
         let program_name = program_link.name.get(0);
         
@@ -233,59 +223,15 @@ impl MyApp {
 
         #[cfg(target_os = "windows")]
         {
+            use crate::utils::windows_utils::create_process;
             // 根据不同的运行模式选择不同的执行方式
-            let result = match (is_admin, is_new_window) {
-                // 管理员权限 + 新窗口
-                (true, true) => {
-                    let mut ps_command = format!(
-                        "Start-Process -FilePath '{}' -Verb RunAs -WindowStyle Normal",
-                        command.replace("'", "''")
-                    );
-                    if !args.is_empty() {
-                        let args_str = args.join(" ");
-                        ps_command.push_str(&format!(" -ArgumentList '{}'", args_str.replace("'", "''")));
-                    }
-                    
-                    Command::new("powershell")
-                    .args(["-Command", &ps_command])
-                    .current_dir(working_directory)
-                    .spawn()
-                },
-                // 仅管理员权限
-                (true, false) => {
-                    let mut ps_command = format!(
-                        "Start-Process -FilePath '{}' -Verb RunAs -WindowStyle Hidden",
-                        command.replace("'", "''")
-                    );
-                    if !args.is_empty() {
-                        let args_str = args.join(" ");
-                        ps_command.push_str(&format!(" -ArgumentList '{}'", args_str.replace("'", "''")));
-                    }
-                    
-                    Command::new("powershell")
-                    .args(["-Command", &ps_command])
-                    .current_dir(working_directory)
-                    .spawn()
-                },
-                // 仅新窗口
-                (false, true) => {
-                    let mut cmd_args = vec!["/c", "start", "cmd", "/c"];
-                    cmd_args.push(&command);
-                    cmd_args.extend(args.iter().map(|s| s.as_str()));
-                    
-                    Command::new("cmd")
-                    .args(cmd_args)
-                    .current_dir(working_directory)
-                    .spawn()
-                },
-                // 普通运行
-                (false, false) => {
-                    Command::new(&command)
-                    .args(args)
-                    .current_dir(working_directory)
-                    .spawn()
-                }
-            };
+            let result = create_process(
+                self.hwnd.unwrap(),
+                &command, 
+                &working_directory.to_string_lossy().to_string(),
+                &args.join(" "),
+                is_admin
+            );
 
             match result {
                 Ok(_) => debug!("{} 运行成功", program_name.unwrap_or(&"".to_string())),
@@ -371,7 +317,6 @@ impl MyApp {
                 Vec::new(),
                 HashSet::new(),
                 false,
-                true,
             ));
         }
 
@@ -380,7 +325,8 @@ impl MyApp {
 }
 
 impl window::App for MyApp {
-    fn init(&mut self) {
+    fn init(&mut self, hwnd: Option<HWND>) {
+        self.hwnd = hwnd;
         #[cfg(target_os = "windows")]
         {
             for program_link in self.program_links.iter() {

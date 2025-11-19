@@ -25,7 +25,6 @@ pub struct LinkConfig {
     pub arguments: Vec<String>,
     pub tags: HashSet<String>,
     pub is_admin: bool,
-    pub is_new_window: bool,
 
     // 子窗口配置
     show_args_config: bool,
@@ -45,7 +44,6 @@ impl LinkConfig {
             arguments: Vec::new(),
             tags: HashSet::new(),
             is_admin: false,
-            is_new_window: true,
 
             show_args_config: false,
             args_scroll_to_bottom: false,
@@ -65,7 +63,6 @@ impl LinkConfig {
         self.arguments = link.arguments.clone();
         self.tags = HashSet::from_iter(link.tags.clone());
         self.is_admin = link.is_admin;
-        self.is_new_window = link.is_new_window;
     }
 
     
@@ -335,18 +332,6 @@ impl MyApp {
 
                 ui.separator();
 
-                ui.checkbox(&mut self.popups.link_config.is_new_window, {
-                    "在新的命令行中运行"
-                });
-
-                if !self.popups.link_config.is_new_window {
-                    ui.label(egui::RichText::new(
-                        "⚠ 如果这是个命令行程序，不在新的命令行中运行会导致你无法和它交互。除非你确定这个程序有非命令行用户界面，否则请保持开启"
-                    ).color(egui::Color32::LIGHT_RED));
-                }
-
-                ui.separator();
-
                 ui.horizontal(|ui| {
                     ui.label("工作目录");
                     ui.add(egui::TextEdit::singleline(&mut self.popups.link_config.working_directory)
@@ -466,7 +451,6 @@ impl MyApp {
                                     self.popups.link_config.arguments.clone(),
                                     self.popups.link_config.tags.clone().into_iter().collect(),
                                     self.popups.link_config.is_admin,
-                                    self.popups.link_config.is_new_window
                                 )
                             );
                             
@@ -497,7 +481,6 @@ impl MyApp {
                         current_link.arguments = self.popups.link_config.arguments.clone();
                         current_link.tags = self.popups.link_config.tags.clone().into_iter().collect();
                         current_link.is_admin = self.popups.link_config.is_admin;
-                        current_link.is_new_window = self.popups.link_config.is_new_window;
 
 
                         should_save = true;
