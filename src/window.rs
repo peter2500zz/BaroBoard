@@ -104,7 +104,7 @@ impl GlutinWindowContext {
             glutin_winit::finalize_window(event_loop, winit_window_builder.clone(), &gl_config)
                 .expect("failed to finalize glutin window")
         });
-        
+
         let (width, height): (u32, u32) = match winit_window_builder.inner_size {
             Some(size) => size.to_physical::<u32>(1.0).into(),
             None => window.inner_size().into(),

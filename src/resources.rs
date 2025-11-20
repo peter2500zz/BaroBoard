@@ -11,7 +11,7 @@ pub fn setup_custom_fonts(ctx: &egui::Context) {
 
     // 根据不同操作系统选择不同的字体路径
     let font_path = std::path::Path::new("C:/Windows/Fonts/msyh.ttc");
-    
+
     if font_path.exists() {
         // 如果找到字体文件，从文件读取
         match std::fs::read(font_path) {
@@ -23,7 +23,7 @@ pub fn setup_custom_fonts(ctx: &egui::Context) {
                     // 在egui中，Arc用于智能地共享大型资源(如字体)，减少内存使用
                     Arc::new(egui::FontData::from_owned(font_data)),
                 );
-                
+
                 // 将字体添加到 Proportional 字体族的第一个位置
                 fonts
                     .families

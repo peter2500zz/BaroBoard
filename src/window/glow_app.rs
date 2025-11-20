@@ -66,11 +66,11 @@ impl GlowApp {
             glow::Context::from_loader_function(|s| {
                 let s = std::ffi::CString::new(s)
                     .expect("failed to construct C string from string for gl proc address");
-    
+
                 glutin_window_context.get_proc_address(&s)
             })
         };
-    
+
         (glutin_window_context, gl)
     }
 }
@@ -156,7 +156,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 });
             }
 
-            
+
 
             if quit {
                 event_loop.exit();

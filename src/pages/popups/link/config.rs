@@ -1,4 +1,4 @@
-use egui::{self, TextBuffer};
+﻿use egui::{self, TextBuffer};
 use std::collections::HashSet;
 use rfd;
 use std::path::Path;
@@ -107,7 +107,7 @@ impl MyApp {
                 .pick_file() {
                     // 如果之前设置页面有图片，则尝试删除缓存
                     if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
-                        self.icon_will_clean.push(icon_path);
+                        self.texture_mgr.schedule_forget(icon_path);
                     }
 
                     let mut icon_path = path.display().to_string();
@@ -140,7 +140,7 @@ impl MyApp {
                     egui::TextEdit::singleline(&mut self.popups.link_config.file_path).hint_text("e.g. C:\\Windows\\System32\\notepad.exe")
                 )
                 .context_menu(|ui| {
-                    if ui.button("选择一个程序").clicked() {
+                    if ui.button("选择一个文件").clicked() {
                         if let Some(path) = rfd::FileDialog::new()
                             .add_filter("任意文件", &["*"])
                             .pick_file() {
@@ -181,7 +181,7 @@ impl MyApp {
                                     });
                                 }
                             ).response;
-                            
+
                             // 输入框和按钮在拖拽区域外
                             if self.popups.link_config.arguments[index].is_empty() {
                                 has_empty_argument = true;
@@ -194,7 +194,7 @@ impl MyApp {
                             if ui.button("➖").clicked() {
                                 index_should_remove = Some(index);
                             }
-                            
+
                             drag_response
                         }).inner;
 
@@ -205,10 +205,10 @@ impl MyApp {
                         ) {
                             // 获取当前项目的矩形区域
                             let rect = response.rect;
-                            
+
                             // 创建线条样式
                             let stroke = egui::Stroke::new(2.0, egui::Color32::from_rgb(100, 100, 255));
-                            
+
                             // 根据鼠标位置确定插入位置（上方或下方）
                             if pointer.y < rect.center().y {
                                 // 在上方绘制水平线
@@ -217,19 +217,19 @@ impl MyApp {
                                 // 在下方绘制水平线
                                 ui.painter().hline(rect.x_range(), rect.bottom(), stroke);
                             }
-                            
+
                             // 检查是否释放了拖拽
                             if let Some(dragged_index) = response.dnd_release_payload::<ArgumentIndex>() {
                                 // 记录拖拽源和目标
                                 drag_from = Some(dragged_index.0);
-                                
+
                                 // 根据鼠标位置确定是插入到上方还是下方
                                 let target_index = if pointer.y < rect.center().y {
                                     index
                                 } else {
                                     index + 1
                                 };
-                                
+
                                 drag_to = Some(target_index);
                             }
                         }
@@ -240,14 +240,14 @@ impl MyApp {
                         if from_idx != to_idx {
                             // 先移除源项目
                             let argument = self.popups.link_config.arguments.remove(from_idx);
-                            
+
                             // 调整目标索引（如果源在目标之前）
                             let adjusted_to_idx = if from_idx < to_idx {
                                 to_idx - 1
                             } else {
                                 to_idx
                             };
-                            
+
                             // 插入到目标位置
                             self.popups.link_config.arguments.insert(adjusted_to_idx, argument);
                         }
@@ -284,7 +284,7 @@ impl MyApp {
             });
 
             ui.label(
-                egui::RichText::new("tip: 名称可以使用 / 来创建别名，也可以只输入一个名称。右键命令输入框可以打开路径选择器")
+                egui::RichText::new("tip: 名称可以使用 / 来创建别名，也可以只输入一个名称。右键路径输入框可以打开路径选择器")
                     .weak()
             );
 
@@ -322,7 +322,17 @@ impl MyApp {
                         .unwrap_or(Path::new("默认为程序所在目录"))
                         .to_str()
                         .unwrap_or("默认为程序所在目录")
-                    ));
+                    ))
+                    .context_menu(|ui| {
+                        if ui.button("选择一个文件夹").clicked() {
+                            if let Some(path) = rfd::FileDialog::new()
+                                .add_filter("任意文件", &["*"])
+                                .pick_folder() {
+                                    self.popups.link_config.working_directory = path.display().to_string();
+                                }
+                            ui.close_menu();
+                        }
+                    });
                 });
 
                 if !Path::new(&self.popups.link_config.working_directory).exists() && !self.popups.link_config.working_directory.is_empty() {
@@ -330,6 +340,11 @@ impl MyApp {
                         "⚠ 此工作目录无效或者我无法访问它"
                     ).color(egui::Color32::LIGHT_RED));
                 }
+
+                ui.label(
+                    egui::RichText::new("tip: 右键路径输入框可以打开路径选择器")
+                        .weak()
+                );
 
                 ui.separator();
 
@@ -348,7 +363,7 @@ impl MyApp {
                         }
                     }
                 });
-                
+
             })});
 
 
@@ -421,39 +436,32 @@ impl MyApp {
                         if self.popups.link_config.icon_path.is_none() {
                             response.on_hover_text_at_pointer("请先添加图片");
                         }
-                        
+
                         if clicked {
                             // 创建不需要清除之前的图片缓存
-                            self.program_links.push(
-                                ProgramLink::new(
-                                    self.popups.link_config.name.clone().split("/").map(|s| s.to_string()).collect(),
-                                    self.popups.link_config.icon_path.clone().unwrap_or("".to_string()),
-                                    self.popups.link_config.file_path.clone(),
-                                    self.popups.link_config.arguments.clone(),
-                                    self.popups.link_config.tags.clone().into_iter().collect(),
-                                    self.popups.link_config.is_admin,
-                                )
+                            let new_link = ProgramLink::new(
+                                self.popups.link_config.name.clone().split("/").map(|s| s.to_string()).collect(),
+                                self.popups.link_config.icon_path.clone().unwrap_or("".to_string()),
+                                self.popups.link_config.file_path.clone(),
+                                self.popups.link_config.arguments.clone(),
+                                self.popups.link_config.tags.clone().into_iter().collect(),
+                                self.popups.link_config.is_admin,
                             );
-                            
+                            self.texture_mgr.register_usage(&new_link.icon_path, &new_link.uuid);
+                            self.program_links.push(new_link);
+
                             should_save = true;
                             should_close = true;
                         }
                     });
-                    
+
                 } else {
                     if ui.button("保存").clicked() {
                         let current_link = &mut self.program_links[self.popups.link_config.index_of_the_link];
-                        // 尝试移除之前的缓存标记
-                        // 我的意思是原本的快捷方式图片而不是设置中的预览
-                        if let Some(icon_path) = self.cached_icon.get_mut(&current_link.icon_path) {
-                            icon_path.remove(&current_link.uuid);
-                        } else {
-                            // 如果不行则强制清空
-                            self.cached_icon.insert(current_link.icon_path.clone(), HashSet::new());
-                        }
+                        let old_icon_path = current_link.icon_path.clone();
+                        let uuid = current_link.uuid.clone();
 
-                        // 如果缓存为空，则删除缓存
-                        self.icon_will_clean.push(current_link.icon_path.clone());
+                        self.texture_mgr.release_usage(&old_icon_path, &uuid);
 
                         current_link.name = self.popups.link_config.name.clone().split("/").map(|s| s.to_string()).collect();
                         current_link.icon_path = self.popups.link_config.icon_path.clone().unwrap_or("".to_string());
@@ -463,6 +471,7 @@ impl MyApp {
                         current_link.tags = self.popups.link_config.tags.clone().into_iter().collect();
                         current_link.is_admin = self.popups.link_config.is_admin;
 
+                        self.texture_mgr.register_usage(&current_link.icon_path, &current_link.uuid);
 
                         should_save = true;
                         should_close = true;
@@ -488,10 +497,10 @@ impl MyApp {
             
             if let Some(icon_path) = self.popups.link_config.icon_path.clone() {
                 if !should_save {
-                    self.icon_will_clean.push(icon_path);
+                    self.texture_mgr.schedule_forget(icon_path);
                 }
             }
-            
+
             if should_save {
                 self.save_conf();
             }

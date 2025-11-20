@@ -1,14 +1,14 @@
 use egui;
 use serde::{Serialize, Deserialize};
 use windows::Win32::Foundation::HWND;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use uuid::Uuid;
 use std::sync::{Arc, Mutex};
 use log::{debug, error, info, warn};
 use std::path::Path;
 
 use crate::pages::popups::Popups;
-use crate::texture_mgr::{save_icon, save_invalid_icon};
+use crate::texture_mgr::{save_icon, save_invalid_icon, TextureManager};
 use crate::window::{self, event::UserEvent};
 
 
@@ -93,14 +93,11 @@ pub struct MyApp {
 
     // 停止保存模式
     pub wont_save: bool,
-    
+
     // 设置相关
     pub popups: Popups,
-    
-    // 需要清理的图标
-    pub icon_will_clean: Vec<String>,
-    // 缓存图标
-    pub cached_icon: HashMap<String, HashSet<String>>,
+
+    pub texture_mgr: TextureManager,
     // 编辑模式
     pub edit_mode: bool,
     // 是否有悬浮文件
@@ -138,7 +135,7 @@ impl MyApp {
                 let version = links_config.get("version")
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0) as u32;
-                
+
                 if version < crate::CONFIG_FILE_VERSION {
                     proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
                     popup.config_file_too_old();
@@ -168,10 +165,12 @@ impl MyApp {
             },
         };
 
+        let mut texture_mgr = TextureManager::default();
         for program_link in &mut program_links {
             if !Path::new(&program_link.icon_path).exists() {
                 program_link.icon_path = save_invalid_icon().unwrap_or_default();
             }
+            texture_mgr.register_usage(&program_link.icon_path, &program_link.uuid);
         }
 
         Self {  
@@ -185,33 +184,12 @@ impl MyApp {
             search_text: "".to_string(),
             sorted_program_links: Vec::new(),
             popups: popup,
-            cached_icon: HashMap::new(),
-            icon_will_clean: Vec::new(),
+            texture_mgr,
             called: called,
             edit_mode: false,
             is_hover_file: None,
             wont_save: wont_save,
         }
-    }
-
-    pub fn clean_unused_icon(&mut self, ctx: &egui::Context) {
-        for icon_path in self.icon_will_clean.iter() {
-            if self.cached_icon.get(icon_path).map_or(true, |set| set.is_empty()) {
-                debug!("释放图片资源 {}", icon_path);
-                ctx.forget_image(&format!("file://{}", icon_path));
-                // ctx.forget_all_images();
-                self.cached_icon.remove(icon_path);
-
-
-                match std::fs::remove_file(icon_path.clone()) {
-                    Ok(_) => debug!("删除缓存图片资源 {} 成功", icon_path),
-                    Err(e) => debug!("删除缓存图片资源 {} 失败: {}", icon_path, e),
-                }
-            } else {
-                debug!("图片仍在被使用，将不会释放 {}", icon_path);
-            }
-        }
-        self.icon_will_clean.clear();
     }
 
     pub fn run_program(&self, program_link: ProgramLink) {
@@ -222,15 +200,15 @@ impl MyApp {
         let is_admin = program_link.is_admin;
 
         let program_name = program_link.name.get(0);
-        
+
         if command.is_empty() {
             debug!("{} 运行失败: 命令为空", program_name.unwrap_or(&"".to_string()));
             return;
         }
 
-        use crate::utils::create_process;
+        use crate::utils::shell_execute;
         // 根据不同的运行模式选择不同的执行方式
-        let result = create_process(
+        let result = shell_execute(
             self.hwnd.unwrap(),
             &command, 
             &working_directory.to_string_lossy().to_string(),
@@ -258,7 +236,7 @@ impl MyApp {
             .unwrap();
     }
 
-    
+
     fn file_hover_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         if self.is_hover_file.is_some() {
             let screen_rect = ctx.screen_rect();
@@ -303,6 +281,10 @@ impl MyApp {
             false,
         ));
 
+        if let Some(link) = self.program_links.last() {
+            self.texture_mgr.register_usage(&link.icon_path, &link.uuid);
+        }
+
         self.save_conf();
     }
 }
@@ -328,7 +310,7 @@ impl window::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             // 顺序是重要的
             self.main_ui(ctx, ui);
-            self.clean_unused_icon(ctx);
+            self.texture_mgr.cleanup(ctx);
             self.file_hover_ui(ctx, ui);
         });
     }

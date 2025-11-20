@@ -25,7 +25,7 @@ use crate::window::event::UserEvent;
 
 
 pub const WINDOW_SIZE: (f32, f32) = (800.0, 500.0);
-pub const PROGRAM_VERSION: &str = "v0.1.4-alpha.05";
+pub const PROGRAM_VERSION: &str = "v0.1.4-alpha.06";
 pub const CONFIG_FILE_VERSION: u32 = 7;
 pub const CONFIG_SAVE_PATH: &str = ".baro";
 pub const CONFIG_FILE_NAME: &str = "links.json";
@@ -37,7 +37,7 @@ fn main() {
     info!("BaroBoard 工具箱 {} 开始运行", PROGRAM_VERSION);
 
     let instance = SingleInstance::new("BaroBoard").unwrap();
-    
+
     if !instance.is_single() {
         warn!("BaroBoard 已经在运行，将不会启动新的实例");
         return;
@@ -47,7 +47,7 @@ fn main() {
     let event_loop = winit::event_loop::EventLoop::<event::UserEvent>::with_user_event()
         .build()
         .unwrap();
-    
+
     let proxy = event_loop.create_proxy();
 
     // 创建Tokio异步运行时
@@ -57,7 +57,7 @@ fn main() {
     // 进入运行时上下文，允许在当前线程使用tokio的异步功能
     // _guard是一个RAII守卫，当它被丢弃时会清理运行时上下文
     let _guard = rt.enter();
-    
+
     // 后台任务
     let called = Arc::new(Mutex::new(true));
 

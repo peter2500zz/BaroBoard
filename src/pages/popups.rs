@@ -169,9 +169,9 @@ impl MyApp {
                 ui.label(
                     "请检查文件结构是否正确。"
                 );
-                
+
                 ui.separator();
-                
+
                 ui.with_layout(egui::Layout {
                     cross_align: egui::Align::RIGHT,
                     ..Default::default()
@@ -218,9 +218,9 @@ impl MyApp {
                 ui.label(
                     "你可以尝试自动修复程序，否则为了安全起见，程序将不会自动保存你的任何操作，直到你有了一份正确的配置文件。"
                 );
-                
+
                 ui.separator();
-                
+
                 ui.with_layout(egui::Layout {
                     cross_align: egui::Align::RIGHT,
                     ..Default::default()
@@ -286,9 +286,9 @@ impl MyApp {
                 ui.label(
                     egui::RichText::new("点叉不会关闭程序，需要右键托盘图标来退出工具箱。").color(egui::Color32::RED)
                 );
-                
+
                 ui.separator();
-                
+
                 ui.with_layout(egui::Layout {
                     cross_align: egui::Align::RIGHT,
                     ..Default::default()
@@ -331,9 +331,9 @@ impl MyApp {
                 ui.label(
                     "仍然尝试读取？"
                 );
-                
+
                 ui.separator();
-                
+
                 ui.with_layout(egui::Layout {
                     cross_align: egui::Align::RIGHT,
                     ..Default::default()
@@ -358,7 +358,7 @@ impl MyApp {
             debug!("配置文件过旧弹窗关闭");
             // debug!("*你* 关闭了对吧？");
             // 用户关闭
-            
+
             self.popups.called = false;
 
             if should_force_read {
@@ -388,9 +388,9 @@ impl MyApp {
                 ui.heading("创建一个新的标签");
 
                 ui.add(egui::TextEdit::singleline(&mut self.popups.tag_new).hint_text("请输入标签名称"));
-                
+
                 ui.separator();
-                
+
                 ui.with_layout(egui::Layout {
                     cross_align: egui::Align::RIGHT,
                     ..Default::default()
@@ -459,9 +459,9 @@ impl MyApp {
                     // egui关闭窗口的动画效果会延迟关闭，这段时间内仍然会被使用
                     .popups.tag_to_delete
                 ));
-                
+
                 ui.separator();
-                
+
                 ui.with_layout(egui::Layout {
                     cross_align: egui::Align::RIGHT,
                     ..Default::default()
@@ -525,9 +525,9 @@ impl MyApp {
                     //(ProgramLink { name: "已删除".to_string(), ..Default::default()})
                     .name.get(0).unwrap_or(&"已删除".to_string())
                 ));
-                
+
                 ui.separator();
-                
+
                 ui.with_layout(egui::Layout {
                     cross_align: egui::Align::RIGHT,
                     ..Default::default()
@@ -537,13 +537,9 @@ impl MyApp {
                         .clicked() {
                             let program_links = &mut self.program_links;
 
-                            if let Some(icon_path) = self.cached_icon.get_mut(&program_links[current_index].icon_path) {
-                                icon_path.remove(&program_links[current_index].uuid);
-                            } else {
-                                // 如果不行则强制清空
-                                self.cached_icon.insert(program_links[current_index].icon_path.clone(), HashSet::new());
-                            }
-                            self.icon_will_clean.push(program_links[current_index].icon_path.clone());
+                            let icon_path = program_links[current_index].icon_path.clone();
+                            let uuid = program_links[current_index].uuid.clone();
+                            self.texture_mgr.release_usage(&icon_path, &uuid);
 
                             let name = program_links[current_index].name.clone();
                             program_links.remove(current_index);

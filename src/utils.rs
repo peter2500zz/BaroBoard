@@ -1,5 +1,6 @@
 use image::{ImageFormat, Rgba, RgbaImage};
 use std::io::Cursor;
+use log::info;
 use widestring::U16CString;
 use windows::{
     Win32::{
@@ -208,7 +209,7 @@ fn convert_icon_to_image(icon: HICON) -> Option<RgbaImage> {
         assert!(scanlines != 0);
 
         ReleaseDC(None, dc);
-        
+
         if !DeleteObject(HGDIOBJ(info.hbmColor.0)).as_bool()
         || !DeleteObject(HGDIOBJ(info.hbmMask.0)).as_bool() {
             return None;
@@ -221,7 +222,7 @@ fn convert_icon_to_image(icon: HICON) -> Option<RgbaImage> {
         let sizes = [16, 24, 32, 48, 64, 72, 96, 128, 192, 256];
 
         if let Some(min_size) = find_min_size(&pixels, width, height, &sizes) {
-            println!("Resizing to: {}", min_size);
+            info!("缩放至 {}px", min_size);
 
             let cropped_pixels: Vec<u8> = pixels
                 .chunks(4)
@@ -285,7 +286,7 @@ fn find_min_size(pixels: &[u8], width: i32, _: i32, sizes: &[i32]) -> Option<i32
     None
 }
 
-pub fn create_process(hwnd: HWND, app: &str, work_dir: &str, args: &str, admin: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn shell_execute(hwnd: HWND, app: &str, work_dir: &str, args: &str, admin: bool) -> Result<(), Box<dyn std::error::Error>> {
     let app16 = U16CString::from_str(app)?;
     let wd16 = U16CString::from_str(work_dir)?;
     let args16 = U16CString::from_str(args)?;

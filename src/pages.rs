@@ -3,7 +3,6 @@ mod sidebar;
 
 use egui;
 use log::{debug, info};
-use std::collections::HashSet;
 use strsim::jaro_winkler;
 use pinyin::ToPinyin;
 
@@ -23,20 +22,20 @@ impl MyApp {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.horizontal_wrapped(|ui| {
-                        
+
                         ui.with_layout(egui::Layout::centered_and_justified(egui::Direction::LeftToRight), |ui| {
                             ui.heading(egui::RichText::new(&self.title))
                             .context_menu(|ui| {
 
                                 if ui.button("自身信息").clicked() {
-                                    info!("{:?}", self);
+                                    info!("{:#?}", self);
                                 }
 
                                 if ui.button("所有快捷方式").clicked() {
-                                    info!("{:?}", self.program_links);
+                                    info!("{:#?}", self.program_links);
                                 }
                                 if ui.button("已缓存的图片").clicked() {
-                                    info!("{:?}", self.cached_icon);
+                                    info!("{:#?}", self.texture_mgr.usage_map());
                                 }
 
                                 if ui.button("隐藏").clicked() {
@@ -47,7 +46,7 @@ impl MyApp {
                                     crate::utils::get_icon_from_exe("C:\\Windows\\System32\\notepad.exe").unwrap();
                                 }
                             });
-                            
+
                         });
                         if self.wont_save {
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -114,7 +113,7 @@ impl MyApp {
                             // 设置相似度阈值
                             .filter(|(_, score)| *score > 0.5)
                             .collect();
-                        
+
                         // 按相似度降序排列
                         results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -127,7 +126,7 @@ impl MyApp {
                                 // 这一步的作用是，如果用户使用Tab聚焦到按钮时，不会触发搜索框的lost_focus，避免重复触发
                                 search_text.lost_focus()
                             {
-                                
+
                                 info!("选中: {} 权重: {}", self.sorted_program_links[0].name.get(0).unwrap_or(&"".to_string()), results[0].1);
                                 self.run_program(self.sorted_program_links[0].clone());
                                 self.search_text = "".to_string();
@@ -135,7 +134,7 @@ impl MyApp {
                                 self.hide_window();
                             }
                             // }
-                            
+
                         } else {
                             // 如果搜索框里没有内容，则清空排序后的程序列表
                             self.sorted_program_links.clear();
@@ -167,7 +166,7 @@ impl MyApp {
             // ui.vertical_centered(|ui| {
             ui.horizontal(|ui| {
                 // ui.heading("页面内容");
-                
+
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.checkbox(&mut self.edit_mode, "编辑模式");
                 });
@@ -191,7 +190,7 @@ impl MyApp {
         // 记录拖拽源和目标位置
         let mut drag_from = None;
         let mut drag_to = None;
-        
+
         // 如果搜索框里有内容，则使用排序后的程序列表，否则使用页面中的程序列表
         let display_program_links = if self.search_text.is_empty() {
             if let Some(tag) = self.current_tag.clone() {sort_by_tag(self.program_links.clone(), tag)} else {self.program_links.clone()}
@@ -205,7 +204,7 @@ impl MyApp {
             ui.centered_and_justified(|ui| {
                 ui.label(
                     egui::RichText::new(
-                        if self.search_text.is_empty() {"这里还没有任何快捷方式！不过你可以在编辑模式中创建一个"
+                        if self.search_text.is_empty() {"这里还没有任何快捷方式！你可以随便拖点东西进来，或者在编辑模式中创建一个"
                         } else {
                             "没有找到任何快捷方式"
                         })
@@ -224,14 +223,11 @@ impl MyApp {
                 for (link_index, program) in (*chunk).iter().enumerate() {
                     // 计算当前项目在整个列表中的绝对索引
                     let absolute_index = i * 6 + link_index;
-                    
+
                     // 图标与名称
                     ui.vertical(|ui| {
-                        // 注册对icon_path的缓存 - 使用entry API优化
-                        self.cached_icon
-                            .entry(program.icon_path.clone())
-                            .or_insert_with(HashSet::new)
-                            .insert(program.uuid.clone());
+                        // 注册对icon_path的缓存
+                        self.texture_mgr.register_usage(&program.icon_path, &program.uuid);
 
                         let btn = Box::new(|ui: &mut egui::Ui| {
                             if !self.edit_mode {
@@ -263,7 +259,7 @@ impl MyApp {
                         } else {
                             btn(ui)
                         };
-                        
+
                         // 检查是否有拖拽悬停在当前项目上
                         if enable_drag {
                             if let (Some(pointer), Some(_)) = (
@@ -272,10 +268,10 @@ impl MyApp {
                             ) {
                                 // 获取当前项目的矩形区域，用于绘制视觉提示
                                 let rect = response.rect;
-                                
+
                                 // 创建线条样式
                                 let stroke = egui::Stroke::new(2.0, egui::Color32::BLACK);
-                                
+
                                 // 根据鼠标位置确定插入位置
                                 if pointer.x < rect.center().x {
                                     // 在左侧绘制垂直线
@@ -284,19 +280,19 @@ impl MyApp {
                                     // 在右侧绘制垂直线
                                     ui.painter().vline(rect.right(), rect.y_range(), stroke);
                                 }
-                                
+
                                 // 检查是否释放了拖拽
                                 if let Some(dragged_index) = response.dnd_release_payload::<ProgramLinkIndex>() {
                                     // 记录拖拽源和目标
                                     drag_from = Some(dragged_index.0);
-                                    
+
                                     // 根据鼠标位置确定是插入到左侧还是右侧
                                     let target_index = if pointer.x < rect.center().x {
                                         absolute_index
                                     } else {
                                         absolute_index + 1
                                     };
-                                    
+
                                     drag_to = Some(target_index);
 
                                     debug!("由于拖拽 尝试保存");
@@ -304,7 +300,7 @@ impl MyApp {
                                 }
                             }
                         }
-                        
+
                         if !self.popups.called {
                             if self.edit_mode && response.clicked() {
                                 // 打开设置窗口
@@ -313,12 +309,12 @@ impl MyApp {
                             } else {
                                 if response.clicked() {
                                     self.run_program(program.clone());
-                                    
+
                                     if !self.search_text.is_empty() {
                                         self.hide_window();
                                     }
                                 }
-                                
+
                                 // 右键点击图标，显示上下文菜单
                                 response.context_menu(|ui| {
                                     // 显示名称
@@ -331,7 +327,7 @@ impl MyApp {
                                     });
 
                                     ui.separator();
-        
+
                                     if ui.button("运行")
                                     .clicked() {
                                         self.run_program(program.clone());
@@ -342,18 +338,18 @@ impl MyApp {
                                         self.popups.config_existing_link(LinkPosition::new(absolute_index), program);
                                         ui.close_menu();
                                     }
-                                    
+
                                     if ui.button("删除")
                                     .clicked() {
                                         self.popups.delete_link(LinkPosition::new(absolute_index));
                                         // self.delete_link(link_index);
-                                        
+
                                         ui.close_menu();
                                     }
                                 });
                             }
                         };
-                        
+
                         // 快捷方式名称Label，最大宽度为96px，仅限一行
                         ui.allocate_ui(egui::Vec2 { x: 96.0, y: 96.0 }, |ui| {
                             let mut job = egui::text::LayoutJob::single_section(program.name.get(0).unwrap_or(&"".to_string()).to_owned(), 
@@ -366,7 +362,7 @@ impl MyApp {
                                 overflow_character: Some('…'),
                                 ..Default::default()
                             };
-                            
+
                             ui.label(job);
                         });
                     });
@@ -383,7 +379,7 @@ impl MyApp {
                         if response.clicked() && !self.popups.called  {
                             self.popups.config_new_link();
                         }
-        
+
                     });
                 }
             });
@@ -418,28 +414,28 @@ impl MyApp {
                 }
             });
         }
-        
+
         // 处理拖拽重排
         if let (Some(from_idx), Some(to_idx)) = (drag_from, drag_to) {
             if from_idx != to_idx && self.search_text.is_empty() {
                 // 获取对当前页面的可变引用
                 // 先移除源项目
                 let program = self.program_links.remove(from_idx);
-                
+
                 // 调整目标索引（如果源在目标之前）
                 let adjusted_to_idx = if from_idx < to_idx {
                     to_idx - 1
                 } else {
                     to_idx
                 };
-                
+
                 // 插入到目标位置
                 self.program_links.insert(adjusted_to_idx, program);
-                
+
             }
         }
         // ctx.texture_ui(ui);
-        
+
         if should_save {
             self.save_conf();
         }
