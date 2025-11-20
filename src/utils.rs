@@ -218,8 +218,71 @@ fn convert_icon_to_image(icon: HICON) -> Option<RgbaImage> {
             p.swap(0, 2);
         }
 
+        let sizes = [16, 24, 32, 48, 64, 72, 96, 128, 192, 256];
+
+        if let Some(min_size) = find_min_size(&pixels, width, height, &sizes) {
+            println!("Resizing to: {}", min_size);
+
+            let cropped_pixels: Vec<u8> = pixels
+                .chunks(4)
+                .enumerate()
+                .filter(|(index, _)| {
+                    let y = (*index as i32) / width;
+                    let x = (*index as i32) % width;
+                    x < min_size && y < min_size
+                })
+                .map(|(_, pixel_chunk)| pixel_chunk)
+                .flatten()
+                .copied()
+                .collect();
+
+            return RgbaImage::from_vec(min_size as u32, min_size as u32, cropped_pixels);
+        }
+
         RgbaImage::from_vec(width as u32, height as u32, pixels)
     }
+}
+
+
+/// By Gemini
+fn find_min_size(pixels: &[u8], width: i32, _: i32, sizes: &[i32]) -> Option<i32> {
+    let mut max_x = -1;
+    let mut max_y = -1;
+
+    // 1. 只需要遍历一次所有像素，找出非透明像素的最大 x 和 y
+    // chunks(4) 对应 [R, G, B, A]
+    for (i, chunk) in pixels.chunks(4).enumerate() {
+        // 检查 Alpha 通道 (chunk[3])
+        if chunk[3] != 0 {
+            let idx = i as i32;
+            let y = idx / width;
+            let x = idx % width;
+
+            if x > max_x { max_x = x; }
+            if y > max_y { max_y = y; }
+        }
+    }
+
+    // 如果全是透明的，可能返回最小尺寸或者 None，视需求而定
+    if max_x == -1 {
+        return None; // 或者 return None
+    }
+
+    // 2. 计算所需的最小宽高 (坐标是从0开始的，所以大小需要+1)
+    let required_w = max_x + 1;
+    let required_h = max_y + 1;
+    let required_size = required_w.max(required_h);
+
+    // 3. 在 sizes 数组中从小到大找到第一个满足要求的尺寸
+    // 这里假设 sizes 已经是升序排列的 [16, 24, ...]
+    for &size in sizes {
+        if size >= required_size {
+            return Some(size);
+        }
+    }
+
+    // 如果都不满足（比如内容超出了 256），返回 None 或最大值
+    None
 }
 
 pub fn create_process(hwnd: HWND, app: &str, work_dir: &str, args: &str, admin: bool) -> Result<(), Box<dyn std::error::Error>> {
