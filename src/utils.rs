@@ -1,3 +1,5 @@
+pub mod save;
+
 use image::{ImageFormat, Rgba, RgbaImage};
 use std::io::Cursor;
 use log::info;

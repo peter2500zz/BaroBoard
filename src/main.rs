@@ -1,12 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // 在Windows的发布版本中隐藏控制台窗口
 
 mod my_structs;
-mod pages;
 mod resources;
 mod window;
 mod utils;
 mod texture_mgr;
 mod logging;
+mod ui;
 
 use std::sync::{Arc, Mutex};
 use egui_winit::winit;
@@ -25,14 +25,15 @@ use crate::window::event::UserEvent;
 
 
 pub const WINDOW_SIZE: (f32, f32) = (800.0, 500.0);
-pub const PROGRAM_VERSION: &str = "v0.1.4-alpha.06";
+pub const PROGRAM_VERSION: &str = "v0.1.4-alpha.07";
 pub const CONFIG_FILE_VERSION: u32 = 7;
 pub const CONFIG_SAVE_PATH: &str = ".baro";
 pub const CONFIG_FILE_NAME: &str = "links.json";
 pub const DOUBLE_ALT_COOLDOWN: u64 = 500;
 
 
-fn main() {
+#[tokio::main]
+async fn main() {
     init_logger();
     info!("BaroBoard 工具箱 {} 开始运行", PROGRAM_VERSION);
 
@@ -50,21 +51,13 @@ fn main() {
 
     let proxy = event_loop.create_proxy();
 
-    // 创建Tokio异步运行时
-    let rt = tokio::runtime::Runtime::new().unwrap();
-
-    // AIGC 添加
-    // 进入运行时上下文，允许在当前线程使用tokio的异步功能
-    // _guard是一个RAII守卫，当它被丢弃时会清理运行时上下文
-    let _guard = rt.enter();
-
     // 后台任务
     let called = Arc::new(Mutex::new(true));
 
     // 是否允许双击呼出
     let all_by_double_alt = Arc::new(Mutex::new(true));
 
-    rt.spawn(double_tap_call(proxy.clone(), Arc::clone(&called), Arc::clone(&all_by_double_alt)));
+    tokio::spawn(double_tap_call(proxy.clone(), Arc::clone(&called), Arc::clone(&all_by_double_alt)));
 
 
     let winit_window_builder = winit::window::WindowAttributes::default()
@@ -88,24 +81,24 @@ fn main() {
 
     // 创建托盘图标
     let tray_icon = trayicon::TrayIconBuilder::new()
-    .sender(move |e: &event::UserEvent| {
-        let _ = proxy_clone_tray.send_event(e.clone());
-    })
-    .icon_from_buffer(resources::LOGO_ICO)
-    .tooltip("BaroBoard 工具箱")
+        .sender(move |e: &event::UserEvent| {
+            let _ = proxy_clone_tray.send_event(e.clone());
+        })
+        .icon_from_buffer(resources::LOGO_ICO)
+        .tooltip("BaroBoard 工具箱")
 
-    .on_click(event::UserEvent::LeftClickTrayIcon)
-    .on_right_click(event::UserEvent::RightClickTrayIcon)
+        .on_click(event::UserEvent::LeftClickTrayIcon)
+        .on_right_click(event::UserEvent::RightClickTrayIcon)
 
-    .menu(
-        trayicon::MenuBuilder::new()
-        .item("显示工具箱", event::UserEvent::ShowWindow)
-        .checkable("双击呼出", *all_by_double_alt.lock().unwrap(), event::UserEvent::ChangeDoubleAlt)
-        .item("退出", event::UserEvent::Exit)
-    )
+        .menu(
+            trayicon::MenuBuilder::new()
+                .item("显示工具箱", event::UserEvent::ShowWindow)
+                .checkable("双击呼出", *all_by_double_alt.lock().unwrap(), event::UserEvent::ChangeDoubleAlt)
+                .item("退出", event::UserEvent::Exit)
+        )
 
-    .build()
-    .unwrap();
+        .build()
+        .unwrap();
 
     // 创建主应用程序
     let proxy_clone_app = proxy.clone();

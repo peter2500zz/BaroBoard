@@ -75,7 +75,7 @@ impl LinkConfig {
 
 
 impl MyApp {
-    pub fn show_link_config(&mut self, ui: &mut egui::Ui) {
+    pub fn show_config_link(&mut self, ui: &mut egui::Ui) {
         let mut show = self.popups.called.clone();
         let mut should_save = false;
         let mut should_close = false;

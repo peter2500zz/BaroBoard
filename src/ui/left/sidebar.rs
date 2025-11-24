@@ -4,7 +4,7 @@ use crate::my_structs::*;
 
 
 impl MyApp {
-    pub fn side_bar(&mut self, ui: &mut egui::Ui) {
+    pub(super) fn show_side_bar(&mut self, ui: &mut egui::Ui) {
 
         ui.vertical_centered_justified(|ui| {
             if !self.edit_mode && self.tags.is_empty() {

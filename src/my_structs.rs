@@ -7,8 +7,9 @@ use std::sync::{Arc, Mutex};
 use log::{debug, error, info, warn};
 use std::path::Path;
 
-use crate::pages::popups::Popups;
 use crate::texture_mgr::{save_icon, save_invalid_icon, TextureManager};
+use crate::ui::popups::Popups;
+use crate::utils::save;
 use crate::window::{self, event::UserEvent};
 
 
@@ -128,7 +129,7 @@ impl MyApp {
             popup.new_here();
         }
 
-        let links_config = crate::pages::popups::link::save::load_conf(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str());
+        let links_config = save::load_conf(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str());
 
         let (mut program_links, tags) =  match links_config {
             Ok(links_config) => {
@@ -142,7 +143,7 @@ impl MyApp {
                     (Vec::new(), HashSet::new())
                 } else {
                     // 尝试反序列化为正确的结构体
-                    match serde_json::from_value::<crate::pages::popups::link::save::LinkConfigSchema>(links_config) {
+                    match serde_json::from_value::<save::LinkConfigSchema>(links_config) {
                         Ok(config) => (config.program_links, config.tags),
                         Err(_) => {
                             proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
@@ -309,7 +310,7 @@ impl window::App for MyApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // 顺序是重要的
-            self.main_ui(ctx, ui);
+            self.show_ui(ui);
             self.texture_mgr.cleanup(ctx);
             self.file_hover_ui(ctx, ui);
         });
