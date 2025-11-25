@@ -1,27 +1,37 @@
-use log::{debug, warn};
 
 use crate::my_structs::MyApp;
 
+use super::Popup;
 
-impl MyApp {
-    pub(super) fn show_config_file_too_old(&mut self, ui: &mut egui::Ui) {
-        let mut show = self.popups.called.clone();
+#[derive(Debug)]
+pub struct ConfigTooOld {
+    confirm: bool,
+}
+
+impl ConfigTooOld {
+    pub fn new() -> Box<Self> {
+        Box::new(Self {
+            confirm: false
+        })
+    }
+}
+
+impl Popup for ConfigTooOld {
+    fn show(&mut self, ui: &mut egui::Ui, showing: &mut bool) -> bool {
         let mut should_close = false;
-        let mut should_force_read = false;
 
         // 删除快捷方式弹窗
-        egui::Window::new("配置文件版本过旧")
-        .title_bar(false)
+        let popup = egui::Window::new("配置文件版本过旧")
+        .title_bar(true)
         .collapsible(false)
         .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+        .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
         .fade_in(true)
         .fade_out(true)
-        .open(&mut show)
+        .open(showing)
 
         .show(ui.ctx(), |ui| {
             ui.vertical_centered(|ui| {
-                ui.heading("配置文件版本过旧");
                 ui.label(
                     "仍然尝试读取？"
                 );
@@ -35,11 +45,10 @@ impl MyApp {
                     ui.horizontal(|ui| {
                         if ui.button(egui::RichText::new("是").color(egui::Color32::RED))
                         .clicked() {
-                            should_force_read = true;
+                            self.confirm = true;
                             should_close = true;
                         }
                         if ui.button("否").clicked() {
-                            self.wont_save = true;
                             should_close = true;
                         }
                     });
@@ -47,18 +56,29 @@ impl MyApp {
             });
         });
 
+        if should_close {
+            *showing = false
+        };
 
-        if (!show && !should_close && self.popups.called) || should_close {
-            debug!("配置文件过旧弹窗关闭");
-            // debug!("*你* 关闭了对吧？");
-            // 用户关闭
+        return popup.is_none();
+    }
 
-            self.popups.called = false;
-
-            if should_force_read {
-                warn!("尝试强制读取配置文件");
-                self.force_read_config();
-            }
+    fn close_desc(&self) -> String {
+        if self.confirm {
+            "尝试强制读取配置文件".to_string()
+        } else {
+            "配置文件过旧弹窗关闭".to_string()
         }
+    }
+
+    fn on_close(&self) -> Option<Box<dyn FnOnce(&mut MyApp)>> {
+        let confirmed = self.confirm;
+        Some(Box::new(move |app| {
+            if confirmed {
+                app.force_read_config();
+            } else {
+                app.wont_save = true;
+            }
+        }))
     }
 }

@@ -1,6 +1,6 @@
 use egui;
 
-use crate::my_structs::*;
+use crate::{my_structs::*, ui::popups::{delete_tag::DeleteTag, new_tag::NewTag}};
 
 
 impl MyApp {
@@ -25,9 +25,9 @@ impl MyApp {
                         tag.clone()
                     )
 
-                    .clicked() && !self.popups.called {
+                    .clicked() {
                         if self.edit_mode {
-                            self.popups.delete_tag(tag.clone());
+                            self.popupgmr.show(DeleteTag::new(tag))
                         } else {
                             if is_selected {
                                 self.current_tag = None;
@@ -41,10 +41,7 @@ impl MyApp {
 
             if self.edit_mode {
                 if ui.button("➕").clicked() {
-                    if !self.popups.called {
-                        // debug!("添加标签");
-                        self.popups.new_tag();
-                    }
+                    self.popupgmr.show(NewTag::new());
                 }
             }
         });

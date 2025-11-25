@@ -8,7 +8,10 @@ use log::{debug, error, info, warn};
 use std::path::Path;
 
 use crate::texture_mgr::{save_icon, save_invalid_icon, TextureManager};
-use crate::ui::popups::Popups;
+use crate::ui::popups::config_file_format_error::ConfigFormatError;
+use crate::ui::popups::config_file_too_old::ConfigTooOld;
+use crate::ui::popups::new_here::NewHere;
+use crate::ui::popups::PopupMgr;
 use crate::utils::save;
 use crate::window::{self, event::UserEvent};
 
@@ -61,19 +64,6 @@ impl ProgramLink {
 }
 
 #[derive(Debug)]
-pub struct LinkPosition {
-    pub link_index: usize,
-}
-
-impl LinkPosition {
-    pub fn new(link_index: usize) -> Self {
-        Self {
-            link_index: link_index,
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct MyApp {
     hwnd: Option<HWND>,
     // 与窗口通信的代理
@@ -95,9 +85,6 @@ pub struct MyApp {
     // 停止保存模式
     pub wont_save: bool,
 
-    // 设置相关
-    pub popups: Popups,
-
     pub texture_mgr: TextureManager,
     // 编辑模式
     pub edit_mode: bool,
@@ -106,6 +93,8 @@ pub struct MyApp {
 
     // 被唤起
     pub called: Arc<Mutex<bool>>,
+
+    pub popupgmr: PopupMgr
 }
 
 impl MyApp {
@@ -114,7 +103,7 @@ impl MyApp {
         proxy: winit::event_loop::EventLoopProxy<UserEvent>
     ) -> Self {
         let mut wont_save = false;
-        let mut popup = Popups::new();
+        let mut popupgmr = PopupMgr::default();
 
         // 创建.baro文件夹
         if !std::path::Path::new(crate::CONFIG_SAVE_PATH).exists() {
@@ -126,8 +115,10 @@ impl MyApp {
                     wont_save = true;
                 },
             }
-            popup.new_here();
+            // popup.new_here();
+            
         }
+        popupgmr.show(NewHere::new());
 
         let links_config = save::load_conf(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str());
 
@@ -139,7 +130,7 @@ impl MyApp {
 
                 if version < crate::CONFIG_FILE_VERSION {
                     proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
-                    popup.config_file_too_old();
+                    popupgmr.show(ConfigTooOld::new());
                     (Vec::new(), HashSet::new())
                 } else {
                     // 尝试反序列化为正确的结构体
@@ -147,7 +138,7 @@ impl MyApp {
                         Ok(config) => (config.program_links, config.tags),
                         Err(_) => {
                             proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
-                            popup.config_file_format_error();
+                            popupgmr.show(ConfigFormatError::new());
                             (Vec::new(), HashSet::new())
                         }
                     }
@@ -158,7 +149,7 @@ impl MyApp {
                 // 检查文件是否存在
                 if std::path::Path::new(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str()).exists() {
                     proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
-                    popup.config_file_format_error();
+                    popupgmr.show(ConfigFormatError::new());
                 } else {
                     proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
                 }
@@ -184,12 +175,13 @@ impl MyApp {
             title: "BaroBoard 工具箱".to_string(),
             search_text: "".to_string(),
             sorted_program_links: Vec::new(),
-            popups: popup,
             texture_mgr,
             called: called,
             edit_mode: false,
             is_hover_file: None,
             wont_save: wont_save,
+
+            popupgmr
         }
     }
 

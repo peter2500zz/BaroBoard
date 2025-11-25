@@ -1,29 +1,42 @@
-use log::debug;
 
 use crate::my_structs::MyApp;
+use super::Popup;
 
+#[derive(Debug)]
+pub struct NewTag {
+    new_tag: String,
 
-impl MyApp {
-    pub(super) fn show_new_tag(&mut self, ui: &mut egui::Ui) {
-        let mut show = self.popups.called.clone();
+    confirm: bool,
+}
+
+impl NewTag {
+    pub fn new() -> Box<Self> {
+        Box::new(Self {
+            new_tag: "".to_string(),
+            confirm: false
+        })
+    }
+}
+
+impl Popup for NewTag {
+    fn show(&mut self, ui: &mut egui::Ui, showing: &mut bool) -> bool {
         let mut should_close = false;
         let mut should_save = false;
 
         // 删除快捷方式弹窗
-        egui::Window::new("创建一个新的标签")
-        .title_bar(false)
+        let popup = egui::Window::new("创建一个新的标签")
+        .title_bar(true)
         .collapsible(false)
         .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+        .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
         .fade_in(true)
         .fade_out(true)
-        .open(&mut show)
+        .open(showing)
 
         .show(ui.ctx(), |ui| {
             ui.vertical_centered(|ui| {
-                ui.heading("创建一个新的标签");
 
-                ui.add(egui::TextEdit::singleline(&mut self.popups.tag_new).hint_text("请输入标签名称"));
+                ui.add(egui::TextEdit::singleline(&mut self.new_tag).hint_text("请输入标签名称"));
 
                 ui.separator();
 
@@ -34,15 +47,13 @@ impl MyApp {
                     ui.horizontal(|ui| {
                         ui.horizontal(|ui| {
 
-                        if self.popups.tag_new.is_empty() {
+                        if self.new_tag.is_empty() {
                             ui.disable();
                         }
 
                         if ui.button(egui::RichText::new("创建"))
                         .clicked() {
-                            self.tags.insert(self.popups.tag_new.clone());
-
-                            debug!("创建成功: {:?}", self.popups.tag_new);
+                            self.confirm = true;
 
                             should_save = true;
                             should_close = true;
@@ -58,15 +69,29 @@ impl MyApp {
         });
 
 
-        if (!show && !should_close && self.popups.called) || should_close {
-            debug!("创建新标签弹窗关闭");
-            // debug!("*你* 关闭了对吧？");
-            // 用户关闭
-            self.popups.called = false;
+        if should_close {
+            *showing = false
+        };
 
-            if should_save {
-                self.save_conf();
-            }
+        return popup.is_none();
+    }
+
+    fn close_desc(&self) -> String {
+        if self.confirm {
+            format!("创建成功: {:?}", self.new_tag)
+        } else {
+            "创建新标签弹窗关闭".to_string()
+        }
+    }
+
+    fn on_close(&self) -> Option<Box<dyn FnOnce(&mut MyApp)>> {
+        if self.confirm {
+            let tag = self.new_tag.clone();
+            Some(Box::new(move |app| {
+                app.tags.insert(tag);
+            }))
+        } else {
+            None
         }
     }
 }

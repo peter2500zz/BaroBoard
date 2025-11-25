@@ -1,26 +1,36 @@
-use log::debug;
 
 use crate::my_structs::MyApp;
 
+use super::Popup;
 
-impl MyApp {
-    pub(super) fn show_config_file_format_error(&mut self, ui: &mut egui::Ui) {
-        let mut show = self.popups.called.clone();
+#[derive(Debug)]
+pub struct ConfigFormatError {
+    confirm: bool,
+}
+
+impl ConfigFormatError {
+    pub fn new() -> Box<Self> {
+        Box::new(Self {
+            confirm: false
+        })
+    }
+}
+
+impl Popup for ConfigFormatError {
+    fn show(&mut self, ui: &mut egui::Ui, showing: &mut bool) -> bool {
         let mut should_close = false;
-        let mut should_auto_fix = false;
 
-        egui::Window::new("无法读取配置文件")
-        .title_bar(false)
+        let popup = egui::Window::new("无法读取配置文件")
+        .title_bar(true)
         .collapsible(false)
         .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+        .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
         .fade_in(true)
         .fade_out(true)
-        .open(&mut show)
+        .open(showing)
 
         .show(ui.ctx(), |ui| {
             ui.vertical_centered(|ui| {
-                ui.heading("嘿！我无法读取你的配置文件！");
                 ui.separator();
                 ui.label(
                     "这可能是由于配置文件的版本过旧，或是配置文件被损坏。"
@@ -38,11 +48,10 @@ impl MyApp {
                     ui.horizontal(|ui| {
                         if ui.button(egui::RichText::new("尝试修复").color(egui::Color32::RED))
                         .clicked() {
-                            should_auto_fix = true;
+                            self.confirm = true;
                             should_close = true;
                         }
                         if ui.button("在无自动保存的情况下继续").clicked() {
-                            self.wont_save = true;
                             should_close = true;
                         }
                     });
@@ -50,15 +59,29 @@ impl MyApp {
             });
         });
 
-        if (!show && !should_close && self.popups.called) || should_close {
-            debug!("配置文件格式错误弹窗关闭");
-            // debug!("*你* 关闭了对吧？");
-            // 用户关闭
-            if should_auto_fix {
-                self.config_auto_fix();
-            }
+        if should_close {
+            *showing = false
+        };
 
-            self.popups.called = false;
+        return popup.is_none();
+    }
+
+    fn close_desc(&self) -> String {
+        if self.confirm {
+            "尝试强制读取配置文件".to_string()
+        } else {
+            "配置文件过旧弹窗关闭".to_string()
         }
+    }
+
+    fn on_close(&self) -> Option<Box<dyn FnOnce(&mut MyApp)>> {
+        let confirmed = self.confirm;
+        Some(Box::new(move |app| {
+            if confirmed {
+                app.config_auto_fix();
+            } else {
+                app.wont_save = true;
+            }
+        }))
     }
 }

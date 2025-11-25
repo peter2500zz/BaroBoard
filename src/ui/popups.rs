@@ -1,155 +1,92 @@
-mod config_link;
-mod config_not_a_json;
-mod config_file_format_error;
-mod config_file_too_old;
-mod new_here;
-mod new_tag;
-mod delete_tag;
-mod delete_link;
+pub mod config_link;
+pub mod config_not_a_json;
+pub mod config_file_format_error;
+pub mod config_file_too_old;
+pub mod new_here;
+pub mod new_tag;
+pub mod delete_tag;
+pub mod delete_link;
+
+use std::fmt::Debug;
 
 use std::collections::HashSet;
 
 use log::debug;
 use crate::my_structs::*;
+use crate::ui::popups::config_file_format_error::ConfigFormatError;
+use crate::ui::popups::config_not_a_json::ConfigNotAJson;
 use crate::utils::save;
 
-#[derive(Debug)]
-pub struct LinkToDelete {
-    index_of_the_link: usize,
+
+pub trait Popup: Debug {
+    /// 当返回值为 true 时，弹窗会关闭
+    fn show(&mut self, ui: &mut egui::Ui, showing: &mut bool) -> bool;
+
+    /// debug 模式下打印的内容
+    fn close_desc(&self) -> String {
+        "弹窗关闭".to_string()
+    }
+
+    /// 弹窗每一刻会执行的内容
+    fn on_update(&self) -> Option<Box<dyn FnOnce(&mut MyApp)>>  {
+        None
+    }
+
+    /// 弹窗关闭时会执行的内容
+    fn on_close(&self) -> Option<Box<dyn FnOnce(&mut MyApp)>>  {
+        None
+    }
 }
 
-impl LinkToDelete {
-    pub fn new() -> Self {
-        Self {
-            index_of_the_link: 0
+
+#[derive(Debug, Default)]
+pub struct PopupMgr {
+    showing: bool,
+
+    popup: Option<Box<dyn Popup>>,
+}
+
+impl PopupMgr {
+    pub fn show(&mut self, popup: Box<dyn Popup>) {
+        if self.popup.is_some() {
+            debug!("因为已经有一个弹窗了，{:?} 将不会被显示", popup);
+
+            return;
         }
+
+        self.popup = Some(popup);
+        self.showing = true
     }
 }
-
-#[derive(Debug, Clone)]
-pub enum PopupType {
-    LinkConfig,
-    LinkDelete,
-    CannotSave,
-    TagDelete,
-    TagNew,
-
-    // 新用户
-    NewHere,
-
-    // 配置文件错误
-    ConfigTooOld,
-    ConfigFormatError,
-    ConfigNotAJson,
-}
-
-#[derive(Debug)]
-pub struct Popups {
-    pub called: bool,
-
-    popup_type: Option<PopupType>,
-
-    // 临时变量
-    link_config: config_link::LinkConfig,
-    link_to_delete: LinkToDelete,
-    tag_to_delete: String,
-    tag_new: String,
-    // pub info: info::Info,
-}
-
-impl Popups {
-    pub fn new() -> Self {
-        Self {
-            called: false,
-            popup_type: None,
-            link_config: config_link::LinkConfig::new(),
-            link_to_delete: LinkToDelete::new(),
-            tag_to_delete: "".to_string(),
-            tag_new: "".to_string(),
-            // info: info::Info::new(),
-        }
-    }
-
-    pub fn cannot_save(&mut self) {
-        debug!("请求无法保存弹窗");
-        self.called = true;
-        self.popup_type = Some(PopupType::CannotSave);
-    }
-
-    pub fn delete_link(&mut self, position: LinkPosition) {
-        debug!("请求删除快捷方式弹窗，位置: {:?}", position);
-        self.called = true;
-        self.popup_type = Some(PopupType::LinkDelete);
-        self.link_to_delete.index_of_the_link = position.link_index;
-    }
-
-    pub fn config_existing_link(&mut self, position: LinkPosition, link: &ProgramLink) {
-        debug!("请求配置快捷方式弹窗，位置: {:?}", position);
-        self.called = true;
-        self.popup_type = Some(PopupType::LinkConfig);
-        self.link_config.config_existing_link(position, link);
-    }
-
-    pub fn config_new_link(&mut self) {
-        debug!("请求配置新快捷方式弹窗");
-        self.called = true;
-        self.popup_type = Some(PopupType::LinkConfig);
-        self.link_config.config_new_link();
-    }
-
-    pub fn delete_tag(&mut self, tag: String) {
-        debug!("请求删除标签弹窗，标签: {}", tag);
-        self.called = true;
-        self.popup_type = Some(PopupType::TagDelete);
-        self.tag_to_delete = tag;
-    }
-
-    pub fn new_tag(&mut self) {
-        debug!("请求创建新标签弹窗");
-        self.called = true;
-        self.tag_new = "".to_string();
-        self.popup_type = Some(PopupType::TagNew);
-    }
-
-    pub fn new_here(&mut self) {
-        debug!("这家伙第一次用哦");
-        self.called = true;
-        self.popup_type = Some(PopupType::NewHere);
-    }
-
-    pub fn config_file_too_old(&mut self) {
-        debug!("请求配置文件过旧弹窗");
-        self.called = true;
-        self.popup_type = Some(PopupType::ConfigTooOld);
-    }
-
-    pub fn config_file_format_error(&mut self) {
-        debug!("请求配置文件格式错误弹窗");
-        self.called = true;
-        self.popup_type = Some(PopupType::ConfigFormatError);
-    }
-
-    fn config_not_a_json(&mut self) {
-        debug!("请求配置文件不是JSON弹窗");
-        self.called = true;
-        self.popup_type = Some(PopupType::ConfigNotAJson);
-    }
-}
-
 
 impl MyApp {
     pub fn show_popup(&mut self, ui: &mut egui::Ui) {
-        if let Some(popup_type) = self.popups.popup_type.clone() {
-            match popup_type {
-                PopupType::LinkConfig => self.show_config_link(ui),
-                PopupType::LinkDelete => self.show_delete_link(ui),
-                PopupType::TagDelete => self.show_delete_tag(ui),
-                PopupType::TagNew => self.show_new_tag(ui),
-                PopupType::NewHere => self.show_new_here(ui),
-                PopupType::ConfigTooOld => self.show_config_file_too_old(ui),
-                PopupType::ConfigFormatError => self.show_config_file_format_error(ui),
-                PopupType::ConfigNotAJson => self.show_config_not_a_json(ui),
-                PopupType::CannotSave => todo!(),
+        let popupmgr = &mut self.popupgmr;
+
+        // 确认是否需要显示弹窗
+        if let Some(popup) = &mut popupmgr.popup {
+            // 保留上一次的显示状态
+            let showed = popupmgr.showing;
+            // 因为这里可能改变 show
+            let need_clean = popup.show(ui, &mut popupmgr.showing);
+            // 如果上次还在显示，这次不显示了，关闭
+            if showed && !popupmgr.showing {
+                debug!("{}", popup.close_desc());
+
+                if let Some(on_close) = popup.on_close() {
+                    on_close(self)
+                }
+
+                self.popupgmr.showing = false;
+            } else {
+                if let Some(on_update) = popup.on_update() {
+                    on_update(self)
+                }
+            }
+            // 直到弹窗认为自己需要被清理，清理弹窗
+            if need_clean {
+                debug!("弹窗已被清理");
+                self.popupgmr.popup = None
             }
         }
     }
@@ -278,7 +215,7 @@ impl MyApp {
                 self.save_conf();
             }
             Err(_) => {
-                self.popups.config_not_a_json();
+                self.popupgmr.show(ConfigNotAJson::new());
             }
         }
     }
@@ -290,7 +227,7 @@ impl MyApp {
             Ok(links_config) => (links_config.program_links, links_config.tags),
             Err(e) => {
                 debug!("读取配置文件失败: {}", e);
-                self.popups.config_file_format_error();
+                self.popupgmr.show(ConfigFormatError::new());
                 (Vec::new(), HashSet::new())
             }
         };
@@ -312,7 +249,7 @@ impl MyApp {
                 Ok(_) => debug!("保存成功"),
                 Err(e) => {
                     debug!("保存失败: {}", e);
-                    self.popups.cannot_save();
+                    todo!();
                 },
             }
         } else {

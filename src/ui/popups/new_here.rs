@@ -1,22 +1,28 @@
-use log::debug;
 
-use crate::my_structs::MyApp;
+use super::Popup;
 
+#[derive(Debug)]
+pub struct NewHere;
 
-impl MyApp {
-    pub(super) fn show_new_here(&mut self, ui: &mut egui::Ui) {
-        let mut show = self.popups.called.clone();
+impl NewHere {
+    pub fn new() -> Box<Self> {
+        Box::new(Self)
+    }
+}
+
+impl Popup for NewHere {
+    fn show(&mut self, ui: &mut egui::Ui, showing: &mut bool) -> bool {
         let mut should_close = false;
 
         // 删除快捷方式弹窗
-        egui::Window::new("嗨！欢迎使用BaroBoard！")
+        let popup = egui::Window::new("嗨！欢迎使用BaroBoard！")
         .title_bar(true)
         .collapsible(false)
         .resizable(false)
         .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
         .fade_in(true)
         .fade_out(true)
-        .open(&mut show)
+        .open(showing)
 
         .show(ui.ctx(), |ui| {
             ui.vertical_centered(|ui| {
@@ -54,10 +60,15 @@ impl MyApp {
             });
         });
 
-        if (!show && !should_close && self.popups.called) || should_close {
-            debug!("新用户弹窗关闭");
+        if should_close {
+            *showing = false
+        // //     debug!("新用户弹窗关闭");
+        };
 
-            self.popups.called = false;
-        }
+        return popup.is_none();
+    }
+
+    fn close_desc(&self) -> String {
+        "新用户弹窗关闭".to_string()
     }
 }

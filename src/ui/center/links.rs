@@ -2,7 +2,7 @@
 use egui;
 use log::debug;
 
-use crate::my_structs::*;
+use crate::{my_structs::*, ui::popups::{config_link::ConfigLink, delete_link::DeleteLink}};
 
 /// 表示程序链接在列表中的索引位置
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -74,7 +74,7 @@ impl MyApp {
                             }
                         });
 
-                        let enable_drag = self.edit_mode && !self.popups.called;
+                        let enable_drag = self.edit_mode;
 
                         let response = if enable_drag {
                             // 在编辑模式下启用拖拽
@@ -127,54 +127,53 @@ impl MyApp {
                             }
                         }
 
-                        if !self.popups.called {
-                            if self.edit_mode && response.clicked() {
-                                // 打开设置窗口
-                                self.popups.config_existing_link(LinkPosition::new(absolute_index), program);
 
-                            } else {
-                                if response.clicked() {
+                        if self.edit_mode && response.clicked() {
+                            // 打开设置窗口
+                            self.popupgmr.show(ConfigLink::from(absolute_index, program));
+
+                        } else {
+                            if response.clicked() {
+                                self.run_program(program.clone());
+
+                                if !self.search_text.is_empty() {
+                                    self.hide_window();
+                                }
+                            }
+
+                            // 右键点击图标，显示上下文菜单
+                            response.context_menu(|ui| {
+                                // 显示名称
+                                ui.horizontal(|ui| {
+                                    ui.label(if program.name.is_empty() {
+                                        egui::RichText::new("未命名").weak()
+                                    } else {
+                                        egui::RichText::new(&program.name.get(0).unwrap_or(&"".to_string()).to_owned())
+                                    });
+                                });
+
+                                ui.separator();
+
+                                if ui.button("运行")
+                                .clicked() {
                                     self.run_program(program.clone());
 
-                                    if !self.search_text.is_empty() {
-                                        self.hide_window();
-                                    }
+                                    ui.close_menu();
+                                }
+                                if ui.button("编辑").clicked() {
+                                    self.popupgmr.show(ConfigLink::from(absolute_index, program));
+                                    ui.close_menu();
                                 }
 
-                                // 右键点击图标，显示上下文菜单
-                                response.context_menu(|ui| {
-                                    // 显示名称
-                                    ui.horizontal(|ui| {
-                                        ui.label(if program.name.is_empty() {
-                                            egui::RichText::new("未命名").weak()
-                                        } else {
-                                            egui::RichText::new(&program.name.get(0).unwrap_or(&"".to_string()).to_owned())
-                                        });
-                                    });
+                                if ui.button("删除")
+                                .clicked() {
+                                    self.popupgmr.show(DeleteLink::new(absolute_index, program.clone()));
+                                    // self.delete_link(link_index);
 
-                                    ui.separator();
-
-                                    if ui.button("运行")
-                                    .clicked() {
-                                        self.run_program(program.clone());
-
-                                        ui.close_menu();
-                                    }
-                                    if ui.button("编辑").clicked() {
-                                        self.popups.config_existing_link(LinkPosition::new(absolute_index), program);
-                                        ui.close_menu();
-                                    }
-
-                                    if ui.button("删除")
-                                    .clicked() {
-                                        self.popups.delete_link(LinkPosition::new(absolute_index));
-                                        // self.delete_link(link_index);
-
-                                        ui.close_menu();
-                                    }
-                                });
-                            }
-                        };
+                                    ui.close_menu();
+                                }
+                            });
+                        }
 
                         // 快捷方式名称Label，最大宽度为96px，仅限一行
                         ui.allocate_ui(egui::Vec2 { x: 96.0, y: 96.0 }, |ui| {
@@ -202,8 +201,8 @@ impl MyApp {
                             egui::vec2(96.0, 96.0),
                             egui::Button::new(egui::RichText::new("➕").size(48.))
                         );
-                        if response.clicked() && !self.popups.called  {
-                            self.popups.config_new_link();
+                        if response.clicked() {
+                            self.popupgmr.show(ConfigLink::new());
                         }
 
                     });
@@ -222,8 +221,8 @@ impl MyApp {
                         egui::vec2(96.0, 96.0),
                         egui::Button::new(egui::RichText::new("➕").size(48.))
                     );
-                    if response.clicked() && !self.popups.called  {
-                        self.popups.config_new_link();
+                    if response.clicked() {
+                        self.popupgmr.show(ConfigLink::new());
                     }
                 });
             }
@@ -235,8 +234,8 @@ impl MyApp {
                     egui::vec2(96.0, 96.0),
                     egui::Button::new(egui::RichText::new("➕").size(48.))
                 );
-                if response.clicked() && !self.popups.called  {
-                    self.popups.config_new_link();
+                if response.clicked() {
+                    self.popupgmr.show(ConfigLink::new());
                 }
             });
         }

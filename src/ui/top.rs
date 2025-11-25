@@ -3,7 +3,7 @@ use log::info;
 use strsim::jaro_winkler;
 use pinyin::ToPinyin;
 
-use crate::my_structs::*;
+use crate::{my_structs::*, ui::popups::new_here::NewHere};
 
 
 impl MyApp {
@@ -33,6 +33,10 @@ impl MyApp {
 
                             if ui.button("获取图标").clicked() {
                                 crate::utils::get_icon_from_exe("C:\\Windows\\System32\\notepad.exe").unwrap();
+                            }
+
+                            if ui.button("测试弹窗").clicked() {
+                                self.popupgmr.show(Box::new(NewHere));
                             }
                         });
 

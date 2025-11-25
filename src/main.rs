@@ -25,7 +25,7 @@ use crate::window::event::UserEvent;
 
 
 pub const WINDOW_SIZE: (f32, f32) = (800.0, 500.0);
-pub const PROGRAM_VERSION: &str = "v0.1.4-alpha.07";
+pub const PROGRAM_VERSION: &str = "v0.1.4-alpha.08";
 pub const CONFIG_FILE_VERSION: u32 = 7;
 pub const CONFIG_SAVE_PATH: &str = ".baro";
 pub const CONFIG_FILE_NAME: &str = "links.json";

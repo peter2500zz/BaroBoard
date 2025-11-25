@@ -1,33 +1,44 @@
-use log::debug;
 
 use crate::my_structs::MyApp;
 
+use super::Popup;
 
-impl MyApp {
-    pub(super) fn show_delete_tag(&mut self, ui: &mut egui::Ui) {
-        let mut show = self.popups.called.clone();
+#[derive(Debug)]
+pub struct DeleteTag {
+    tag: String,
+
+    confirm: bool,
+}
+
+impl DeleteTag {
+    pub fn new(tag: String) -> Box<Self> {
+        Box::new(Self {
+            tag,
+            confirm: false
+        })
+    }
+}
+
+impl Popup for DeleteTag {
+    fn show(&mut self, ui: &mut egui::Ui, showing: &mut bool) -> bool {
         let mut should_close = false;
         let mut should_save = false;
 
         // 删除快捷方式弹窗
-        egui::Window::new("你确定要删除这个标签吗？")
-        .title_bar(false)
+        let popup = egui::Window::new("你确定要删除这个标签吗？")
+        .title_bar(true)
         .collapsible(false)
         .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+        .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
         .fade_in(true)
         .fade_out(true)
-        .open(&mut show)
+        .open(showing)
 
         .show(ui.ctx(), |ui| {
             ui.vertical_centered(|ui| {
-                ui.heading("你确定要删除这个标签吗？");
                 ui.label(format!(
                     "所有快捷方式的 “{}” 标签将会被删除", 
-                    self
-                    // 这里不能unwarp的原因是
-                    // egui关闭窗口的动画效果会延迟关闭，这段时间内仍然会被使用
-                    .popups.tag_to_delete
+                    self.tag
                 ));
 
                 ui.separator();
@@ -39,9 +50,7 @@ impl MyApp {
                     ui.horizontal(|ui| {
                         if ui.button(egui::RichText::new("确定").color(egui::Color32::RED))
                         .clicked() {
-                            self.tags.remove(&self.popups.tag_to_delete);
-
-                            debug!("删除成功: {:?}", self.popups.tag_to_delete);
+                            self.confirm = true;
 
                             should_save = true;
                             should_close = true;
@@ -54,15 +63,29 @@ impl MyApp {
             });
         });
 
+        if should_close {
+            *showing = false
+        };
 
-        if (!show && !should_close && self.popups.called) || should_close {
-            debug!("*你* 关闭了对吧？");
-            // 用户关闭
-            self.popups.called = false;
+        return popup.is_none();
+    }
 
-            if should_save {
-                self.save_conf();
-            }
+    fn close_desc(&self) -> String {
+        if self.confirm {
+            format!("删除成功: {:?}", self.tag)
+        } else {
+            "没有删除任何东西".to_string()
+        }
+    }
+
+    fn on_close(&self) -> Option<Box<dyn FnOnce(&mut MyApp)>> {
+        if self.confirm {
+            let tag = self.tag.clone();
+            Some(Box::new(move |app| {
+                app.tags.remove(&tag);
+            }))
+        } else {
+            None
         }
     }
 }
