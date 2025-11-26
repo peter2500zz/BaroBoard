@@ -9,7 +9,7 @@ pub mod delete_link;
 
 use std::fmt::Debug;
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
 use log::debug;
 use crate::my_structs::*;
@@ -28,7 +28,7 @@ pub trait Popup: Debug {
     }
 
     /// 弹窗每一刻会执行的内容
-    fn on_update(&self) -> Option<Box<dyn FnOnce(&mut MyApp)>>  {
+    fn on_update(&mut self) -> Option<Box<dyn FnOnce(&mut MyApp)>>  {
         None
     }
 
@@ -44,18 +44,31 @@ pub struct PopupMgr {
     showing: bool,
 
     popup: Option<Box<dyn Popup>>,
+    popup_queue: VecDeque<Box<dyn Popup>>,
 }
 
 impl PopupMgr {
-    pub fn show(&mut self, popup: Box<dyn Popup>) {
+    /// 显示一个弹窗，如果当前已经有一个弹窗就不会显示并返回 false
+    pub fn show(&mut self, popup: Box<dyn Popup>) -> bool {
         if self.popup.is_some() {
             debug!("因为已经有一个弹窗了，{:?} 将不会被显示", popup);
 
-            return;
+            return false;
         }
 
         self.popup = Some(popup);
-        self.showing = true
+        self.showing = true;
+
+        true
+    }
+
+    /// 将一个弹窗加入队列，之后按队列依次显示弹窗
+    pub fn queue(&mut self, popup: Box<dyn Popup>) {
+        self.popup_queue.push_back(popup);
+    }
+
+    pub fn can_show(&self) -> bool {
+        !self.showing
     }
 }
 
@@ -88,6 +101,9 @@ impl MyApp {
                 debug!("弹窗已被清理");
                 self.popupgmr.popup = None
             }
+        } else if !self.popupgmr.popup_queue.is_empty() {
+            self.popupgmr.popup = self.popupgmr.popup_queue.pop_front();
+            self.popupgmr.showing = true;
         }
     }
 }
@@ -215,7 +231,7 @@ impl MyApp {
                 self.save_conf();
             }
             Err(_) => {
-                self.popupgmr.show(ConfigNotAJson::new());
+                self.popupgmr.queue(ConfigNotAJson::new());
             }
         }
     }
@@ -227,7 +243,7 @@ impl MyApp {
             Ok(links_config) => (links_config.program_links, links_config.tags),
             Err(e) => {
                 debug!("读取配置文件失败: {}", e);
-                self.popupgmr.show(ConfigFormatError::new());
+                self.popupgmr.queue(ConfigFormatError::new());
                 (Vec::new(), HashSet::new())
             }
         };

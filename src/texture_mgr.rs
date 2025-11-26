@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}, fs};
 use log::debug;
 use md5;
 
@@ -68,6 +68,24 @@ impl TextureManager {
         &self.icon_refs
     }
 }
+
+pub fn cache_img(img_path: &str) -> Result<String, Box<dyn std::error::Error>> {
+    std::fs::create_dir_all(format!("{}/cache/exe_icon", crate::CONFIG_SAVE_PATH))?;
+
+    let icon_path = format!(
+        "{}/cache/exe_icon/{:x}.{}",
+        crate::CONFIG_SAVE_PATH,
+        md5::compute(img_path.as_bytes()),
+        std::path::Path::new(&img_path).extension().unwrap_or_default().to_string_lossy()
+    );
+    debug!("缓存 {} 至 {}", img_path, icon_path);
+    if !std::path::Path::new(&icon_path).exists() {
+        std::fs::write(icon_path.clone(), fs::read(img_path)?)?;
+    }
+
+    Ok(icon_path)
+}
+
 
 pub fn save_icon(path: &str) -> Result<String, Box<dyn std::error::Error>> {
     let icon = get_icon_from_exe(&path)?;

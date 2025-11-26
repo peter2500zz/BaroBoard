@@ -4,6 +4,7 @@ use rfd;
 use std::path::Path;
 use log::debug;
 
+use crate::texture_mgr::cache_img;
 use crate::{my_structs::*, texture_mgr::save_icon};
 
 /// 表示参数在列表中的索引位置
@@ -127,6 +128,8 @@ impl Popup for ConfigLink {
                                 "读取exe图标失败".to_string()
                             }
                         };
+                    } else {
+                        icon_path = cache_img(&icon_path).unwrap_or("缓存图标失败".to_string());
                     }
 
                     self.icon_path = Some(icon_path);
@@ -489,8 +492,8 @@ impl Popup for ConfigLink {
         return popup.is_none();
     }
 
-    fn on_update(&self) -> Option<Box<dyn FnOnce(&mut MyApp)>> {
-        if let Some(icon_path) = self.icon_path_to_clean.clone() {
+    fn on_update(&mut self) -> Option<Box<dyn FnOnce(&mut MyApp)>> {
+        if let Some(icon_path) = self.icon_path_to_clean.take() {
             Some(Box::new(move |app| {
                 app.texture_mgr.schedule_forget(icon_path);
             }))

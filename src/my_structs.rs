@@ -118,7 +118,7 @@ impl MyApp {
             // popup.new_here();
             
         }
-        popupgmr.show(NewHere::new());
+        popupgmr.queue(NewHere::new());
 
         let links_config = save::load_conf(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str());
 
@@ -130,7 +130,7 @@ impl MyApp {
 
                 if version < crate::CONFIG_FILE_VERSION {
                     proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
-                    popupgmr.show(ConfigTooOld::new());
+                    popupgmr.queue(ConfigTooOld::new());
                     (Vec::new(), HashSet::new())
                 } else {
                     // 尝试反序列化为正确的结构体
@@ -138,7 +138,7 @@ impl MyApp {
                         Ok(config) => (config.program_links, config.tags),
                         Err(_) => {
                             proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
-                            popupgmr.show(ConfigFormatError::new());
+                            popupgmr.queue(ConfigFormatError::new());
                             (Vec::new(), HashSet::new())
                         }
                     }

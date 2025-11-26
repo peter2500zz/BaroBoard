@@ -83,6 +83,7 @@ impl Popup for DeleteTag {
             let tag = self.tag.clone();
             Some(Box::new(move |app| {
                 app.tags.remove(&tag);
+                app.save_conf();
             }))
         } else {
             None

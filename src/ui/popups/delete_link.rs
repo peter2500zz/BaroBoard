@@ -93,6 +93,7 @@ impl Popup for DeleteLink {
                 app.texture_mgr.release_usage(&icon_path, &uuid);
 
                 app.program_links.remove(index);
+                app.save_conf();
             }))
         } else {
             None

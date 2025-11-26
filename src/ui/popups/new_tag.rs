@@ -89,6 +89,7 @@ impl Popup for NewTag {
             let tag = self.new_tag.clone();
             Some(Box::new(move |app| {
                 app.tags.insert(tag);
+                app.save_conf();
             }))
         } else {
             None

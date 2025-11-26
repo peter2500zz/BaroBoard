@@ -27,7 +27,7 @@ impl MyApp {
 
                     .clicked() {
                         if self.edit_mode {
-                            self.popupgmr.show(DeleteTag::new(tag))
+                            self.popupgmr.show(DeleteTag::new(tag));
                         } else {
                             if is_selected {
                                 self.current_tag = None;
