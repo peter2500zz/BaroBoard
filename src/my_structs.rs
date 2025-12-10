@@ -1,12 +1,18 @@
 use egui;
 use serde::{Serialize, Deserialize};
-use std::collections::{HashMap, HashSet};
+use windows::Win32::Foundation::HWND;
+use std::collections::HashSet;
 use uuid::Uuid;
 use std::sync::{Arc, Mutex};
-use std::process::Command;
 use log::{debug, error, info, warn};
+use std::path::Path;
 
-use crate::pages::popups::Popups;
+use crate::texture_mgr::{save_icon, save_invalid_icon, TextureManager};
+use crate::ui::popups::config_file_format_error::ConfigFormatError;
+use crate::ui::popups::config_file_too_old::ConfigTooOld;
+use crate::ui::popups::new_here::NewHere;
+use crate::ui::popups::PopupMgr;
+use crate::utils::save;
 use crate::window::{self, event::UserEvent};
 
 
@@ -15,12 +21,12 @@ pub struct ProgramLink {
     pub name: Vec<String>,
     pub icon_path: String,
     pub run_command: String,
+    pub working_directory: String,
     pub arguments: Vec<String>,
     pub tags: HashSet<String>,
 
     // 高级内容
     pub is_admin: bool,
-    pub is_new_window: bool,
 
      // 自动生成
     pub uuid: String,
@@ -32,11 +38,11 @@ impl Default for ProgramLink {
             name: Vec::new(),
             icon_path: "".to_string(),
             run_command: "".to_string(),
+            working_directory: "".to_string(),
             arguments: Vec::new(),
             tags: HashSet::new(),
 
             is_admin: false,
-            is_new_window: true,
 
             uuid: Uuid::new_v4().to_string(),
         }
@@ -44,7 +50,7 @@ impl Default for ProgramLink {
 }
 
 impl ProgramLink {
-    pub fn new(name: Vec<String>, icon_path: String, run_command: String, argument: Vec<String>, tags: HashSet<String>, is_admin: bool, is_new_window: bool) -> Self {
+    pub fn new(name: Vec<String>, icon_path: String, run_command: String, argument: Vec<String>, tags: HashSet<String>, is_admin: bool) -> Self {
         Self {
             name: name,
             icon_path: icon_path,
@@ -52,35 +58,14 @@ impl ProgramLink {
             arguments: argument,
             tags: tags,
             is_admin: is_admin,
-            is_new_window: is_new_window,
             ..Default::default()
-        }
-    }
-}
-
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Page {
-    pub program_links: Vec<ProgramLink>,
-    pub title: String,
-}
-
-
-#[derive(Debug)]
-pub struct LinkPosition {
-    pub link_index: usize,
-}
-
-impl LinkPosition {
-    pub fn new(link_index: usize) -> Self {
-        Self {
-            link_index: link_index,
         }
     }
 }
 
 #[derive(Debug)]
 pub struct MyApp {
+    hwnd: Option<HWND>,
     // 与窗口通信的代理
     pub proxy: winit::event_loop::EventLoopProxy<UserEvent>,
 
@@ -99,14 +84,8 @@ pub struct MyApp {
 
     // 停止保存模式
     pub wont_save: bool,
-    
-    // 设置相关
-    pub popups: Popups,
-    
-    // 需要清理的图标
-    pub icon_will_clean: Vec<String>,
-    // 缓存图标
-    pub cached_icon: HashMap<String, HashSet<String>>,
+
+    pub texture_mgr: TextureManager,
     // 编辑模式
     pub edit_mode: bool,
     // 是否有悬浮文件
@@ -114,6 +93,8 @@ pub struct MyApp {
 
     // 被唤起
     pub called: Arc<Mutex<bool>>,
+
+    pub popupgmr: PopupMgr
 }
 
 impl MyApp {
@@ -122,6 +103,7 @@ impl MyApp {
         proxy: winit::event_loop::EventLoopProxy<UserEvent>
     ) -> Self {
         let mut wont_save = false;
+        let mut popupgmr = PopupMgr::default();
 
         // 创建.baro文件夹
         if !std::path::Path::new(crate::CONFIG_SAVE_PATH).exists() {
@@ -133,29 +115,30 @@ impl MyApp {
                     wont_save = true;
                 },
             }
+            // popup.new_here();
+            
         }
+        popupgmr.queue(NewHere::new());
 
-        let mut popup = Popups::new();
+        let links_config = save::load_conf(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str());
 
-        let links_config = crate::pages::popups::link::save::load_conf(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str());
-
-        let (program_links, tags) =  match links_config {
+        let (mut program_links, tags) =  match links_config {
             Ok(links_config) => {
                 let version = links_config.get("version")
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0) as u32;
-                
+
                 if version < crate::CONFIG_FILE_VERSION {
                     proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
-                    popup.config_file_too_old();
+                    popupgmr.queue(ConfigTooOld::new());
                     (Vec::new(), HashSet::new())
                 } else {
                     // 尝试反序列化为正确的结构体
-                    match serde_json::from_value::<crate::pages::popups::link::save::LinkConfigSchema>(links_config) {
+                    match serde_json::from_value::<save::LinkConfigSchema>(links_config) {
                         Ok(config) => (config.program_links, config.tags),
                         Err(_) => {
                             proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
-                            popup.config_file_format_error();
+                            popupgmr.queue(ConfigFormatError::new());
                             (Vec::new(), HashSet::new())
                         }
                     }
@@ -166,13 +149,24 @@ impl MyApp {
                 // 检查文件是否存在
                 if std::path::Path::new(format!("{}/{}", crate::CONFIG_SAVE_PATH, crate::CONFIG_FILE_NAME).as_str()).exists() {
                     proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
-                    popup.config_file_format_error();
+                    popupgmr.show(ConfigFormatError::new());
+                } else {
+                    proxy.send_event(crate::event::UserEvent::ShowWindow).unwrap();
                 }
                 (Vec::new(), HashSet::new())
             },
         };
 
+        let mut texture_mgr = TextureManager::default();
+        for program_link in &mut program_links {
+            if !Path::new(&program_link.icon_path).exists() {
+                program_link.icon_path = save_invalid_icon().unwrap_or_default();
+            }
+            texture_mgr.register_usage(&program_link.icon_path, &program_link.uuid);
+        }
+
         Self {  
+            hwnd: None,
             proxy: proxy,
 
             program_links: program_links,
@@ -181,110 +175,45 @@ impl MyApp {
             title: "BaroBoard 工具箱".to_string(),
             search_text: "".to_string(),
             sorted_program_links: Vec::new(),
-            popups: popup,
-            cached_icon: HashMap::new(),
-            icon_will_clean: Vec::new(),
+            texture_mgr,
             called: called,
             edit_mode: false,
             is_hover_file: None,
             wont_save: wont_save,
-        }
-    }
 
-    pub fn clean_unused_icon(&mut self, ctx: &egui::Context) {
-        for icon_path in self.icon_will_clean.iter() {
-            if self.cached_icon.get(icon_path).map_or(true, |set| set.is_empty()) {
-                debug!("释放图片资源 {}", icon_path);
-                ctx.forget_image(&format!("file://{}", icon_path));
-                // ctx.forget_all_images();
-                self.cached_icon.remove(icon_path);
-
-                #[cfg(target_os = "windows")]
-                {
-                    match std::fs::remove_file(icon_path.clone()) {
-                        Ok(_) => debug!("删除缓存图片资源 {} 成功", icon_path),
-                        Err(e) => debug!("删除缓存图片资源 {} 失败: {}", icon_path, e),
-                    }
-                }
-            } else {
-                debug!("图片仍在被使用，将不会释放 {}", icon_path);
-            }
+            popupgmr
         }
-        self.icon_will_clean.clear();
     }
 
     pub fn run_program(&self, program_link: ProgramLink) {
         // 解析命令字符串，分离程序名和参数
         let command = program_link.run_command;
+        let working_directory = if program_link.working_directory.is_empty() { Path::new(&command).parent().unwrap_or(Path::new(".")) } else { Path::new(&program_link.working_directory) };
         let args = program_link.arguments;
         let is_admin = program_link.is_admin;
-        let is_new_window = program_link.is_new_window;
 
         let program_name = program_link.name.get(0);
-        
+
         if command.is_empty() {
             debug!("{} 运行失败: 命令为空", program_name.unwrap_or(&"".to_string()));
             return;
         }
 
-        #[cfg(target_os = "windows")]
-        {
-            // 根据不同的运行模式选择不同的执行方式
-            let result = match (is_admin, is_new_window) {
-                // 管理员权限 + 新窗口
-                (true, true) => {
-                    let mut ps_command = format!(
-                        "Start-Process -FilePath '{}' -Verb RunAs -WindowStyle Normal",
-                        command.replace("'", "''")
-                    );
-                    if !args.is_empty() {
-                        let args_str = args.join(" ");
-                        ps_command.push_str(&format!(" -ArgumentList '{}'", args_str.replace("'", "''")));
-                    }
-                    
-                    Command::new("powershell")
-                        .args(["-Command", &ps_command])
-                        .spawn()
-                },
-                // 仅管理员权限
-                (true, false) => {
-                    let mut ps_command = format!(
-                        "Start-Process -FilePath '{}' -Verb RunAs -WindowStyle Hidden",
-                        command.replace("'", "''")
-                    );
-                    if !args.is_empty() {
-                        let args_str = args.join(" ");
-                        ps_command.push_str(&format!(" -ArgumentList '{}'", args_str.replace("'", "''")));
-                    }
-                    
-                    Command::new("powershell")
-                        .args(["-Command", &ps_command])
-                        .spawn()
-                },
-                // 仅新窗口
-                (false, true) => {
-                    let mut cmd_args = vec!["/c", "start", "cmd", "/c"];
-                    cmd_args.push(&command);
-                    cmd_args.extend(args.iter().map(|s| s.as_str()));
-                    
-                    Command::new("cmd")
-                        .args(cmd_args)
-                        .spawn()
-                },
-                // 普通运行
-                (false, false) => {
-                    Command::new(command)
-                        .args(args)
-                        .spawn()
-                }
-            };
+        use crate::utils::shell_execute;
+        // 根据不同的运行模式选择不同的执行方式
+        let result = shell_execute(
+            self.hwnd.unwrap(),
+            &command, 
+            &working_directory.to_string_lossy().to_string(),
+            &args.join(" "),
+            is_admin
+        );
 
-            match result {
-                Ok(_) => debug!("{} 运行成功", program_name.unwrap_or(&"".to_string())),
-                Err(e) => {
-                    debug!("{} 运行失败: {}", program_name.unwrap_or(&"".to_string()), e);
-                },
-            }
+        match result {
+            Ok(_) => debug!("{} 运行成功", program_name.unwrap_or(&"".to_string())),
+            Err(e) => {
+                debug!("{} 运行失败: {}", program_name.unwrap_or(&"".to_string()), e);
+            },
         }
     }
 
@@ -300,7 +229,7 @@ impl MyApp {
             .unwrap();
     }
 
-    
+
     fn file_hover_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         if self.is_hover_file.is_some() {
             let screen_rect = ctx.screen_rect();
@@ -326,30 +255,27 @@ impl MyApp {
             return;
         }
 
-        // 如果是个exe文件（仅限windows）
-        #[cfg(target_os = "windows")]
-        if path.ends_with(".exe") {
-            let icon_path = match self.save_exe_icon(path.clone()) {
-                Ok(icon_path) => icon_path,
-                Err(e) => {
-                    debug!("保存图标失败: {}", e);
-                    "读取exe图标失败".to_string()
-                }
-            };
+        let icon_path = match save_icon(&path) {
+            Ok(icon_path) => icon_path,
+            Err(e) => {
+                debug!("保存图标失败: {}", e);
+                "读取exe图标失败".to_string()
+            }
+        };
 
-            let name = std::path::Path::new(&path).file_name().unwrap().to_str().unwrap().to_string();
-            // 去掉.exe
-            let name = name.strip_suffix(".exe").unwrap_or(&name).to_string();
+        let name = std::path::Path::new(&path).file_name().unwrap().to_str().unwrap().to_string();
 
-            self.program_links.push(ProgramLink::new(
-                vec![name],
-                icon_path,
-                path.clone(),
-                Vec::new(),
-                HashSet::new(),
-                false,
-                true,
-            ));
+        self.program_links.push(ProgramLink::new(
+            vec![name],
+            icon_path,
+            path.clone(),
+            Vec::new(),
+            HashSet::new(),
+            false,
+        ));
+
+        if let Some(link) = self.program_links.last() {
+            self.texture_mgr.register_usage(&link.icon_path, &link.uuid);
         }
 
         self.save_conf();
@@ -357,15 +283,13 @@ impl MyApp {
 }
 
 impl window::App for MyApp {
-    fn init(&mut self) {
-        #[cfg(target_os = "windows")]
-        {
-            for program_link in self.program_links.iter() {
-                if program_link.icon_path.ends_with(".exe") {
-                    match self.save_exe_icon(program_link.icon_path.clone()) {
-                        Ok(_) => debug!("保存图标成功"),
-                        Err(e) => debug!("保存图标失败: {}", e),
-                    }
+    fn init(&mut self, hwnd: Option<HWND>) {
+        self.hwnd = hwnd;
+        for program_link in self.program_links.iter() {
+            if program_link.icon_path.ends_with(".exe") {
+                match save_icon(&program_link.icon_path) {
+                    Ok(_) => debug!("保存图标成功"),
+                    Err(e) => debug!("保存图标失败: {}", e),
                 }
             }
         }
@@ -378,8 +302,8 @@ impl window::App for MyApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // 顺序是重要的
-            self.main_ui(ctx, ui);
-            self.clean_unused_icon(ctx);
+            self.show_ui(ui);
+            self.texture_mgr.cleanup(ctx);
             self.file_hover_ui(ctx, ui);
         });
     }

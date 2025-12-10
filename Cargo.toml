@@ -1,6 +1,6 @@
 [package]
 name = "BaroBoard"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 
 [dependencies]
@@ -12,7 +12,6 @@ winit = "0.30.10"
 glow = "0.16.0"
 glutin = "0.32.3"
 glutin-winit = "0.5.0"
-trayicon = "0.2.0"
 
 rfd = "0.15.3"
 uuid = { version = "1.16.0", features = ["v4"] }
@@ -25,15 +24,15 @@ serde_json = "1.0.140"
 
 strsim = "0.11.1"
 
-tokio = { version = "1.45.0", features = ["full"] }
+tokio = { version = "1.45.0", features = ["macros", "rt-multi-thread"] }
 single-instance = "0.3.3"
 md5 = "0.7.0"
 env_logger = "0.11.8"
 log = "0.4.27"
 chrono = { version = "0.4.41", features = ["serde"] }
-
-[target.'cfg(windows)'.dependencies]
-systemicons = "0.9.13"
+trayicon = "0.2.0"
+windows = { version = "0.62.2", features = ["Win32_System_Registry", "Win32_UI_Shell", "Win32_UI_Controls", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_Storage_FileSystem"] }
+widestring = "1.2.1"
 
 [build-dependencies]
 winres = "0.1"

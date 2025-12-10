@@ -1,11 +1,11 @@
 use egui;
 
-use crate::my_structs::*;
+use crate::{my_structs::*, ui::popups::{delete_tag::DeleteTag, new_tag::NewTag}};
 
 
 impl MyApp {
-    pub fn side_bar(&mut self, ui: &mut egui::Ui) {
-        
+    pub(super) fn show_side_bar(&mut self, ui: &mut egui::Ui) {
+
         ui.vertical_centered_justified(|ui| {
             if !self.edit_mode && self.tags.is_empty() {
                 ui.label(egui::RichText::new("这里还没有任何标签！").weak());
@@ -17,17 +17,17 @@ impl MyApp {
                         self.current_tag = None;
                         ui.style_mut().visuals.widgets.hovered.weak_bg_fill = egui::Color32::LIGHT_RED;
                     }
-    
+
                     let is_selected = self.current_tag.as_ref().unwrap_or(&"".to_string()) == &tag;
-    
+
                     if ui.selectable_label(
                         is_selected,
                         tag.clone()
                     )
-                    
-                    .clicked() && !self.popups.called {
+
+                    .clicked() {
                         if self.edit_mode {
-                            self.popups.delete_tag(tag.clone());
+                            self.popupgmr.show(DeleteTag::new(tag));
                         } else {
                             if is_selected {
                                 self.current_tag = None;
@@ -38,13 +38,10 @@ impl MyApp {
                     }
                 }
             });
-            
+
             if self.edit_mode {
                 if ui.button("➕").clicked() {
-                    if !self.popups.called {
-                        // debug!("添加标签");
-                        self.popups.new_tag();
-                    }
+                    self.popupgmr.show(NewTag::new());
                 }
             }
         });

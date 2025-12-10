@@ -1,0 +1,558 @@
+﻿use egui::{self, TextBuffer};
+use std::collections::HashSet;
+use rfd;
+use std::path::Path;
+use log::debug;
+
+use crate::texture_mgr::cache_img;
+use crate::{my_structs::*, texture_mgr::save_icon};
+
+/// 表示参数在列表中的索引位置
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ArgumentIndex(usize);
+
+use crate::my_structs::MyApp;
+use super::Popup;
+
+#[derive(Debug)]
+pub struct ConfigLink {
+    is_new_link: bool,
+    new_link: Option<ProgramLink>,
+
+    index_of_the_link: usize,
+
+    // 临时变量们
+    pub name: String,
+    pub icon_path: Option<String>,
+    pub file_path: String,
+    pub working_directory: String,
+    pub arguments: Vec<String>,
+    pub tags: HashSet<String>,
+    pub is_admin: bool,
+
+    // 子窗口配置
+    show_args_config: bool,
+    args_scroll_to_bottom: bool,
+    show_advanced_config: bool,
+
+    icon_path_to_clean: Option<String>,
+    should_save: bool,
+}
+
+impl ConfigLink {
+    pub fn new() -> Box<Self> {
+        Box::new(Self {
+            is_new_link: true,
+            new_link: None,
+            index_of_the_link: 0,
+            name: "".to_string(),
+            icon_path: None,
+            file_path: "".to_string(),
+            working_directory: "".to_string(),
+            arguments: Vec::new(),
+            tags: HashSet::new(),
+            is_admin: false,
+
+            show_args_config: false,
+            args_scroll_to_bottom: false,
+            show_advanced_config: false,
+
+            icon_path_to_clean: None,
+            should_save: false,
+        })
+    }
+
+    pub fn from(position: usize, link: &ProgramLink) -> Box<Self> {
+        Box::new(Self {
+            is_new_link: false,
+            new_link: None,
+            index_of_the_link: position,
+
+            name: link.name.clone().join("/"),
+            icon_path: Some(link.icon_path.clone()),
+            file_path: link.run_command.clone(),
+            working_directory: link.working_directory.clone(),
+            arguments: link.arguments.clone(),
+            tags: HashSet::from_iter(link.tags.clone()),
+            is_admin: link.is_admin,
+
+            show_args_config: false,
+            args_scroll_to_bottom: false,
+            show_advanced_config: false,
+
+            icon_path_to_clean: None,
+            should_save: false,
+        })
+    }
+}
+
+impl Popup for ConfigLink {
+    fn show(&mut self, ui: &mut egui::Ui, showing: &mut bool) -> bool {
+        let mut should_close = false;
+
+        // 设置页面
+        let popup = egui::Window::new(if self.is_new_link {
+            "创建快捷方式"
+        } else {
+            "配置快捷方式"
+        })
+        .collapsible(false)
+        .resizable(false)
+        .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
+        // .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+        
+        .fade_in(true)
+        .fade_out(true)
+        .open(showing)
+
+        .show(ui.ctx(), |ui| {
+
+            if ui.add_sized(
+                egui::vec2(96.0, 96.0),
+                egui::ImageButton::new(format!("file://{}", &self.icon_path.clone().unwrap_or("你还没有添加任何图片！".to_string())))
+            ).clicked() {
+                let can_display = vec!["png", "svg"];
+
+                if let Some(path) = rfd::FileDialog::new()
+                .pick_file() {
+                    // 如果之前设置页面有图片，则尝试删除缓存
+                    self.icon_path_to_clean = self.icon_path.clone();
+
+                    let mut icon_path = path.display().to_string();
+
+                    if !can_display.contains(&path.extension().unwrap().to_string_lossy().as_str()) {
+                        icon_path = match save_icon(&icon_path) {
+                            Ok(icon_path) => icon_path,
+                            Err(e) => {
+                                debug!("保存图标失败: {}", e);
+                                "读取exe图标失败".to_string()
+                            }
+                        };
+                    } else {
+                        icon_path = cache_img(&icon_path).unwrap_or("缓存图标失败".to_string());
+                    }
+
+                    self.icon_path = Some(icon_path);
+                }
+            }
+
+            ui.label(&self.icon_path.clone().unwrap_or("↑ 你至少需要一张图片！".to_string()));
+
+            ui.horizontal(|ui| {
+                ui.label("名称");
+                ui.add(egui::TextEdit::singleline(&mut self.name).hint_text("e.g. 记事本/notepad"));
+                
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("路径");
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.file_path).hint_text("e.g. C:\\Windows\\System32\\notepad.exe")
+                )
+                .context_menu(|ui| {
+                    if ui.button("选择一个文件").clicked() {
+                        if let Some(path) = rfd::FileDialog::new()
+                            .add_filter("任意文件", &["*"])
+                            .pick_file() {
+                                self.file_path = path.display().to_string();
+                            }
+                        ui.close_menu();
+                    }
+                })
+                ;
+            });
+
+            let arguments_config_window = egui::Window::new("参数配置")
+            .collapsible(false)
+            .resizable(false)
+            .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
+            .open(&mut self.show_args_config)
+            .order(egui::Order::Foreground)
+            .show(ui.ctx(), |ui| {
+                let mut has_empty_argument = false;
+
+                egui::ScrollArea::vertical()
+                .max_height(256.)
+                .show(ui, |ui| {
+                // ui.vertical(|ui| {
+                    let mut index_should_remove: Option<usize> = None;
+                    let mut drag_from = None;
+                    let mut drag_to = None;
+
+                    for (index, _) in self.arguments.clone().iter().enumerate() {
+                        let response = ui.horizontal(|ui| {
+                            // 只让标签部分可拖拽
+                            let drag_response = ui.dnd_drag_source(
+                                egui::Id::new(format!("arg_{}", index)), 
+                                ArgumentIndex(index), 
+                                |ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new(format!("☰ 参数 {}", index + 1)));
+                                    });
+                                }
+                            ).response;
+
+                            // 输入框和按钮在拖拽区域外
+                            if self.arguments[index].is_empty() {
+                                has_empty_argument = true;
+                            }
+
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.arguments[index])
+                                .hint_text("e.g. --name=John")
+                            );
+                            if ui.button("➖").clicked() {
+                                index_should_remove = Some(index);
+                            }
+
+                            drag_response
+                        }).inner;
+
+                        // 检查是否有拖拽悬停在当前项目上
+                        if let (Some(pointer), Some(_)) = (
+                            ui.input(|i| i.pointer.interact_pos()),
+                            response.dnd_hover_payload::<ArgumentIndex>(),
+                        ) {
+                            // 获取当前项目的矩形区域
+                            let rect = response.rect;
+
+                            // 创建线条样式
+                            let stroke = egui::Stroke::new(2.0, egui::Color32::from_rgb(100, 100, 255));
+
+                            // 根据鼠标位置确定插入位置（上方或下方）
+                            if pointer.y < rect.center().y {
+                                // 在上方绘制水平线
+                                ui.painter().hline(rect.x_range(), rect.top(), stroke);
+                            } else {
+                                // 在下方绘制水平线
+                                ui.painter().hline(rect.x_range(), rect.bottom(), stroke);
+                            }
+
+                            // 检查是否释放了拖拽
+                            if let Some(dragged_index) = response.dnd_release_payload::<ArgumentIndex>() {
+                                // 记录拖拽源和目标
+                                drag_from = Some(dragged_index.0);
+
+                                // 根据鼠标位置确定是插入到上方还是下方
+                                let target_index = if pointer.y < rect.center().y {
+                                    index
+                                } else {
+                                    index + 1
+                                };
+
+                                drag_to = Some(target_index);
+                            }
+                        }
+                    }
+
+                    // 处理拖拽重排
+                    if let (Some(from_idx), Some(to_idx)) = (drag_from, drag_to) {
+                        if from_idx != to_idx {
+                            // 先移除源项目
+                            let argument = self.arguments.remove(from_idx);
+
+                            // 调整目标索引（如果源在目标之前）
+                            let adjusted_to_idx = if from_idx < to_idx {
+                                to_idx - 1
+                            } else {
+                                to_idx
+                            };
+
+                            // 插入到目标位置
+                            self.arguments.insert(adjusted_to_idx, argument);
+                        }
+                    }
+
+                    if let Some(index) = index_should_remove {
+                        self.arguments.remove(index);
+                    }
+
+                    if self.args_scroll_to_bottom {
+                        ui.scroll_to_cursor(Some(egui::Align::BOTTOM));
+                        self.args_scroll_to_bottom = false;
+                    }
+                });
+
+                ui.horizontal(|ui| {
+                    if self.arguments.is_empty() {
+                        ui.label(egui::RichText::new(
+                            "这个快捷方式还没有任何参数"
+                        ).weak());
+                    } else if has_empty_argument {
+                        ui.label(egui::RichText::new(
+                            "⚠ 你似乎有一些空参数，如果是刻意为之，请无视此警告"
+                        ).color(egui::Color32::LIGHT_RED));
+                    }
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                        if ui.button("➕").clicked() {
+                            self.arguments.push("".to_string());
+                            self.args_scroll_to_bottom = true;
+                        }
+                    });
+                });
+            });
+
+            ui.label(
+                egui::RichText::new("tip: 名称可以使用 / 来创建别名，也可以只输入一个名称。右键路径输入框可以打开路径选择器")
+                    .weak()
+            );
+
+            let advanced_config_window = egui::Window::new("高级选项")
+            .collapsible(false)
+            .resizable(false)
+            .default_pos(egui::pos2(crate::WINDOW_SIZE.0 / 2.0, crate::WINDOW_SIZE.1 / 2.0))
+            .open(&mut self.show_advanced_config)
+            .max_width(256.)
+            .order(egui::Order::Foreground)
+            .show(ui.ctx(), |ui| {
+                egui::ScrollArea::vertical()
+                .max_height(256.)
+                .show(ui, |ui| {
+
+
+                ui.checkbox(&mut self.is_admin, {
+                    "以管理员权限运行"
+                });
+
+                if self.is_admin {
+                    ui.label(egui::RichText::new(
+                        "⚠ 权限的提升可能是危险的，请确保你信任这个程序"
+                    ).color(egui::Color32::LIGHT_RED));
+                }
+
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    ui.label("工作目录");
+                    ui.add(egui::TextEdit::singleline(&mut self.working_directory)
+                    .hint_text(
+                        Path::new(&self.file_path)
+                        .parent()
+                        .unwrap_or(Path::new("默认为程序所在目录"))
+                        .to_str()
+                        .unwrap_or("默认为程序所在目录")
+                    ))
+                    .context_menu(|ui| {
+                        if ui.button("选择一个文件夹").clicked() {
+                            if let Some(path) = rfd::FileDialog::new()
+                                .add_filter("任意文件", &["*"])
+                                .pick_folder() {
+                                    self.working_directory = path.display().to_string();
+                                }
+                            ui.close_menu();
+                        }
+                    });
+                });
+
+                if !Path::new(&self.working_directory).exists() && !self.working_directory.is_empty() {
+                    ui.label(egui::RichText::new(
+                        "⚠ 此工作目录无效或者我无法访问它"
+                    ).color(egui::Color32::LIGHT_RED));
+                }
+
+                ui.label(
+                    egui::RichText::new("tip: 右键路径输入框可以打开路径选择器")
+                        .weak()
+                );
+
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    ui.label("配置命令参数");
+                    let arg_button = ui.button(
+                        if self.arguments.is_empty() {
+                            "没有参数".to_string()
+                        } else {
+                            format!("{} 个参数", self.arguments.len())
+                        } + " ⚙");
+                    if arg_button.clicked() {
+                        self.show_args_config = true;
+                        if let Some(window) = arguments_config_window {
+                            window.response.request_focus();
+                        }
+                    }
+                });
+
+            })});
+
+
+            ui.horizontal(|ui| {
+                egui::ComboBox::from_label("选择标签")
+                .selected_text(if self.tags.is_empty() {
+                    "无标签".to_string()
+                } else {
+                    let tag_counts = self.tags
+                        .iter()
+                        .filter(|&tag| self.tags.contains(tag))
+                        .collect::<Vec<_>>()
+                        .len();
+                    if tag_counts == 0 {
+                        "无标签".to_string()
+                    } else {
+                        format!("{} 个标签", tag_counts)
+                    }
+                })
+                .truncate()
+                .show_ui(ui, |ui| {
+                    if self.tags.is_empty() {
+                        ui.label(egui::RichText::new("你还没有任何标签").weak());
+                    }
+
+                    for tag in &self.tags.clone() {
+                        let is_select = self.tags.contains(tag);
+                        let mut selected = is_select.clone();
+
+                        ui.checkbox(
+                            &mut selected,
+                            tag.clone()
+                        );
+
+                        if selected {
+                            if !is_select {
+                                self.tags.insert(tag.clone());
+                            }
+                        } else {
+                            self.tags.remove(tag);
+                        }
+                    }
+                });
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
+                    if ui.button("高级选项 ⚙").clicked() {
+                        debug!("打开高级选项");
+                        self.show_advanced_config = true;
+                        if let Some(window) = advanced_config_window {
+                            window.response.request_focus();
+                        }
+                    }
+                });
+            });
+
+            ui.separator();
+            // 保存与取消按钮
+            ui.with_layout(egui::Layout {
+                cross_align: egui::Align::RIGHT,
+                ..Default::default()
+            }, |ui| {ui.horizontal(|ui| {
+                if self.is_new_link {
+                    ui.horizontal(|ui| {
+                        if self.icon_path.is_none() {
+                            ui.disable();
+                        }
+
+                        let response = ui.button("创建");
+                        let clicked = response.clicked();
+                        if self.icon_path.is_none() {
+                            response.on_hover_text_at_pointer("请先添加图片");
+                        }
+
+                        if clicked {
+                            // 创建不需要清除之前的图片缓存
+                            self.new_link = Some(ProgramLink::new(
+                                self.name.clone().split("/").map(|s| s.to_string()).collect(),
+                                self.icon_path.clone().unwrap_or("".to_string()),
+                                self.file_path.clone(),
+                                self.arguments.clone(),
+                                self.tags.clone().into_iter().collect(),
+                                self.is_admin,
+                            ));
+
+                            self.should_save = true;
+                            should_close = true;
+                        }
+                    });
+
+                } else {
+                    if ui.button("保存").clicked() {
+
+                        self.should_save = true;
+                        should_close = true;
+                    }
+                }
+
+                if ui.button("取消").clicked() {
+                    // 如果此图片没有被其他程序使用，则删除缓存
+
+                    should_close = true;
+                }
+            })});
+        });
+
+
+        if should_close {
+            *showing = false
+        };
+
+        if !*showing {
+            self.show_advanced_config = false;
+            self.show_args_config = false;
+        }
+
+        return popup.is_none();
+    }
+
+    fn on_update(&mut self) -> Option<Box<dyn FnOnce(&mut MyApp)>> {
+        if let Some(icon_path) = self.icon_path_to_clean.take() {
+            Some(Box::new(move |app| {
+                app.texture_mgr.schedule_forget(icon_path);
+            }))
+        } else {
+            None
+        }
+    }
+
+    fn close_desc(&self) -> String {
+        if self.should_save {
+            format!("创建成功")
+        } else {
+            "创建新标签弹窗关闭".to_string()
+        }
+    }
+
+    fn on_close(&self) -> Option<Box<dyn FnOnce(&mut MyApp)>> {
+        let should_save = self.should_save;
+        let is_new_link = self.is_new_link;
+        let new_link = self.new_link.clone();
+        let index_of_the_link = self.index_of_the_link;
+        let name = self.name.clone();
+        let file_path = self.file_path.clone();
+        let working_directory = self.working_directory.clone();
+        let arguments = self.arguments.clone();
+        let tags = self.tags.clone();
+        let is_admin = self.is_admin;
+
+        let icon_path = self.icon_path.clone();
+
+        Some(Box::new(move |app| {
+            if should_save {
+                if is_new_link && let Some(new_link) = new_link {
+                    app.texture_mgr.register_usage(&new_link.icon_path, &new_link.uuid);
+                    app.program_links.push(new_link);
+                } else {
+                    let current_link = &mut app.program_links[index_of_the_link];
+                    let old_icon_path = current_link.icon_path.clone();
+                    let uuid = current_link.uuid.clone();
+
+                    app.texture_mgr.release_usage(&old_icon_path, &uuid);
+
+                    current_link.name = name.split("/").map(|s| s.to_string()).collect();
+                    current_link.icon_path = icon_path.unwrap_or("".to_string());
+                    current_link.run_command = file_path;
+                    current_link.working_directory = working_directory;
+                    current_link.arguments = arguments;
+                    current_link.tags = tags;
+                    current_link.is_admin = is_admin;
+
+                    app.texture_mgr.register_usage(&current_link.icon_path, &current_link.uuid);
+                }
+
+                app.save_conf();
+            } else {
+                if let Some(icon_path) = icon_path {
+                    app.texture_mgr.schedule_forget(icon_path);
+                }
+            }
+        }))
+    }
+}

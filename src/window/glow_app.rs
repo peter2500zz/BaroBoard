@@ -1,7 +1,11 @@
 use crate::{event::UserEvent, window::GlutinWindowContext};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 use log::debug;
+use log::info;
+use windows::Win32::Foundation::HWND;
+use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use crate::window;
 
@@ -62,11 +66,11 @@ impl GlowApp {
             glow::Context::from_loader_function(|s| {
                 let s = std::ffi::CString::new(s)
                     .expect("failed to construct C string from string for gl proc address");
-    
+
                 glutin_window_context.get_proc_address(&s)
             })
         };
-    
+
         (glutin_window_context, gl)
     }
 }
@@ -86,7 +90,24 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
         self.update_ui = Some(self.set_up.as_mut()(&egui_glow.egui_ctx));
         match self.update_ui.as_mut() {
             Some(update_ui) => {
-                update_ui.init();
+                let hwnd = match gl_window.window().window_handle() {
+                    Ok(handle) => {
+                        let raw_handle = handle.as_raw();
+                        if let RawWindowHandle::Win32(win32_handle) = raw_handle {
+                            let hwnd = HWND(win32_handle.hwnd.get() as _);
+                            info!("成功获取窗口句柄 HWND: {:?}", hwnd);
+                            Some(hwnd)
+                        } else {
+                            debug!("非 Win32 窗口句柄");
+                            None
+                        }
+                    }
+                    Err(e) => {
+                        debug!("获取窗口句柄失败: {}", e);
+                        None
+                    }
+                };
+                update_ui.init(hwnd);
             }
             None => {
                 debug!("初始化失败");
@@ -135,7 +156,7 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 });
             }
 
-            
+
 
             if quit {
                 event_loop.exit();
@@ -268,7 +289,9 @@ impl winit::application::ApplicationHandler<UserEvent> for GlowApp {
                 // 窗口隐藏时，设置为等待模式，避免频繁唤醒
                 event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
             }
+
             UserEvent::Exit => {
+                info!("程序退出");
                 std::process::exit(0);
             }
 
